@@ -1,0 +1,3 @@
+[submodule "lib/uniswap-hooks"]
+	path = packages/contracts/lib/uniswap-hooks
+	url = https://github.com/OpenZeppelin/uniswap-hooks
