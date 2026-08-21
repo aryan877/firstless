@@ -1,0 +1,37 @@
+# Workspace dependencies and Turbo cache
+node_modules/
+.turbo/
+
+# Web build and local runtime state
+apps/web/dist/
+apps/web/.wrangler/
+apps/web/public/deployments/local.json
+*.tsbuildinfo
+
+# Foundry build and deployment artifacts
+packages/contracts/cache/
+packages/contracts/out/
+packages/contracts/broadcast/
+packages/contracts/coverage/
+packages/contracts/lcov.info
+packages/contracts/coverage*.lcov
+packages/contracts/.local/
+
+# Private research is intentionally excluded from the public repository
+packages/research/
+
+# Documentation stays private until it moves to a dedicated docs site
+docs/
+
+# Private agent control plane and rank-one working checklist
+/AGENTS.md
+
+# Python caches outside the private research tree
+**/__pycache__/
+**/.pytest_cache/
+*.py[cod]
+
+# Local secrets and OS metadata
+.env
+.env.local
+.DS_Store

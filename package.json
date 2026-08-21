@@ -1,0 +1,27 @@
+{
+  "name": "firstless",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@10.9.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/contracts"
+  ],
+  "scripts": {
+    "dev": "turbo run dev --filter=@firstless/web",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:coverage": "npm run test:coverage --workspace @firstless/contracts",
+    "check": "turbo run check",
+    "contracts:dev": "npm run localnet --workspace @firstless/contracts",
+    "contracts:stop": "npm run localnet:stop --workspace @firstless/contracts",
+    "demo": "./scripts/demo.sh",
+    "demo:verify": "npm run test:e2e --workspace @firstless/contracts"
+  },
+  "devDependencies": {
+    "turbo": "2.10.12"
+  }
+}
