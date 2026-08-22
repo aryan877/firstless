@@ -1,0 +1,21 @@
+{
+  "name": "@firstless/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "forge build",
+    "check": "forge fmt --check && forge build",
+    "test": "forge test -vv",
+    "test:unit": "forge test --match-path 'test/unit/**'",
+    "test:integration": "forge test --match-path 'test/integration/**'",
+    "test:security": "forge test --match-path 'test/security/**'",
+    "test:invariant": "forge test --match-path 'test/invariant/**'",
+    "test:fork": "forge test --match-path 'test/fork/**'",
+    "test:coverage": "forge coverage --report summary --no-match-test test_bytecodeSizeBelowEIP170 --no-match-coverage 'script|test' --skip script --skip SecurityMatrixCore.t.sol --skip SecurityMatrixEconomic.t.sol",
+    "test:e2e": "./script/verify-local-e2e.sh",
+    "localnet": "./script/localnet.sh",
+    "localnet:stop": "./script/stop-localnet.sh",
+    "format": "forge fmt",
+    "clean": "forge clean"
+  }
+}

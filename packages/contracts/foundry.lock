@@ -1,0 +1,8 @@
+{
+  "lib/uniswap-hooks": {
+    "tag": {
+      "name": "v1.2.0",
+      "rev": "b52f464aa0af8fcd8f16cdad9ae43581deb5cd47"
+    }
+  }
+}
