@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 72" role="img" aria-labelledby="mark-title mark-desc">
+  <title id="mark-title">Firstless clearing gate</title>
+  <desc id="mark-desc">One clear gate with a shared lane through its center.</desc>
+  <style>:root{--brand-ink:#161714}.ink{fill:var(--brand-ink)}</style>
+  <path class="ink" fill-rule="evenodd" d="M31 5h34a10 10 0 0 1 10 10v14h13a7 7 0 0 1 0 14H75v14a10 10 0 0 1-10 10H31a10 10 0 0 1-10-10V43H8a7 7 0 0 1 0-14h13V15A10 10 0 0 1 31 5Zm12 15v32h10V20H43Z"/>
+</svg>
