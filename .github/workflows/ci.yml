@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting, contracts, generated ABI, types, and web build
+        run: npm run check
+
+      - name: Run Foundry unit, integration, security, fuzz, and invariant suites
+        run: npm test
+
+      - name: Require complete production line and function coverage
+        run: npm run test:coverage
+
+      - name: Run the isolated real-transaction local lifecycle
+        run: npm run demo:verify
+
+      - name: Audit JavaScript dependencies
+        run: npm audit --audit-level=low
