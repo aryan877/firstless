@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty false",
     "test:local-e2e": "node scripts/local-e2e.mjs",
+    "test:sepolia-e2e": "node scripts/sepolia-e2e.mjs",
     "generate:contracts": "wagmi generate",
     "predev": "npm run generate:contracts",
     "prebuild": "npm run generate:contracts",

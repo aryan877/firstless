@@ -21,7 +21,7 @@
 </p>
 
 > [!WARNING]
-> Firstless is experimental hackathon software. It has extensive local verification but no independent audit and no claimed public deployment yet.
+> Firstless is experimental, unaudited hackathon software. The public Sepolia deployment below uses valueless test tokens and is not production-ready.
 
 <p align="center">
   <img src="assets/readme/firstless-flow.svg" width="100%" alt="Animated Firstless clearing lifecycle" />
@@ -84,7 +84,7 @@ The current reproducible evidence includes:
 - **1,000 fuzz cases per property**;
 - **100% production line and function coverage**, 93.98% statements and 60.23% branches;
 - **39 pinned Ethereum sandwich replays**: 37 profitable vanilla attacker portfolios and 0 profitable Firstless attacker portfolios; and
-- a real local transaction lifecycle covering signed execution, immediate output, settlement, refund redemption, pending LP activation and LP withdrawal.
+- real local and public Sepolia transaction lifecycles covering signed execution, immediate output, settlement, refund redemption, pending LP activation and LP withdrawal.
 
 These measurements support the bounded tested claim. They do not prove the absence of every bug or every form of MEV.
 
@@ -216,13 +216,44 @@ firstless/
 
 ## Ethereum Sepolia
 
-The judged artifact is Ethereum-only and targets the official Sepolia v4 PoolManager:
+The public demo is deployed on Ethereum Sepolia at block `11620547`. It uses the [official Uniswap v4 Sepolia PoolManager](https://developers.uniswap.org/docs/protocols/v4/deployments), a 0.3% curve fee (`997 / 1000`), a 10% per-side output cap, and 1,000 fETH / 1,000 fUSD of seeded test liquidity.
 
-```text
-0xE03A1074c86CFeDd5C142C4F04F1a1536e203543
+| Component | Address |
+| --- | --- |
+| Uniswap v4 PoolManager | [`0xE03A…3543`](https://sepolia.etherscan.io/address/0xE03A1074c86CFeDd5C142C4F04F1a1536e203543) |
+| FirstlessHook | [`0xCb9D…EA88`](https://repo.sourcify.dev/11155111/0xCb9De08bf9cdD52275bD5BDAf68937EAdd23EA88) |
+| FirstlessRouter | [`0xa5e0…ef09`](https://repo.sourcify.dev/11155111/0xa5e0305Fe94Cbb230B873227918953fd4e42ef09) |
+| FirstlessRefundRedeemer | [`0x3179…F03F`](https://repo.sourcify.dev/11155111/0x317972d08e4aA4f2DC171886A0e48Dab75e9F03F) |
+| fETH test token | [`0x1A88…a468`](https://repo.sourcify.dev/11155111/0x1A884b5Ac9e2229a11183748436489D1f8d3a468) |
+| fUSD test token | [`0x9090…4868`](https://repo.sourcify.dev/11155111/0x9090cC6c504C748e6dd72F0a44B13235F7Cf4868) |
+
+Pool ID: `0xa15f2e838229c1df30e53f685327b968a15955adfd271e14d15007271c46d322`
+
+All five Firstless contracts are exact creation- and runtime-bytecode matches on Sourcify. The tracked runtime manifest is [`apps/web/public/deployments/sepolia.json`](apps/web/public/deployments/sepolia.json).
+
+### Public lifecycle proof
+
+The release wallet exercised the deployed contracts rather than only checking their bytecode:
+
+| Step | Sepolia transaction |
+| --- | --- |
+| Hook deployment | [`0x2d62…fe20`](https://sepolia.etherscan.io/tx/0x2d62cc878b6bf272eb75b157cd31f144c5d8dd108f146f9ded8e95ff0263fe20) |
+| Pool initialization and seed | [`initialize`](https://sepolia.etherscan.io/tx/0x16104b706159ec1e0910557bb746214c7024e1cfa94af1a481c43482e1008d5c) · [`seed`](https://sepolia.etherscan.io/tx/0xd1def40edf477a5641811032d940721f3874754306e63f74fe94b9cf07ebeeeb) |
+| Signed exact-output order | [`0x1cb2…6fd3`](https://sepolia.etherscan.io/tx/0x1cb2ada56895f5f544c9cbe7f6c41fd677259c4ef91b6b9affdaf3fa2e446fd3) |
+| Next-block settlement | [`0x29cf…faa3`](https://sepolia.etherscan.io/tx/0x29cf52003a4e793fc660dcee159537c2b54daf155f52473e6be9a8f8dfc2faa3) |
+| Refund claim and redemption | [`claim`](https://sepolia.etherscan.io/tx/0x193a246d50b9e8a780c95ef25cacde9648b780ba04c37e4b725a045ba58174b9) · [`redeem`](https://sepolia.etherscan.io/tx/0x849bcabbc8984378f00dc551eb0e6a56ddaed4842799d98461128c13c7f63906) |
+| Deferred LP activation | [`queue`](https://sepolia.etherscan.io/tx/0xa74d0aa3f094941ab0693153de83b4b22118e1878424b3509f1f6b8b151df3b1) · [`activate`](https://sepolia.etherscan.io/tx/0x30b86645f529b92cb509a65cdfe5c2e5bcd8f8c360fd6244a464ed4b25519124) |
+| Active LP withdrawal | [`0xe6ec…016d`](https://sepolia.etherscan.io/tx/0xe6ec7fdf3baeeedf8d77b6082ca34012d24fdd5ffa1242a9d9e27fd88990016d) |
+
+The public order delivered exactly 10 fETH from a 12.246752467414453392 fUSD maximum. Settlement fixed the final bill at 10.131404313951956890 fUSD and returned a fully backed 2.115348153462496502 fUSD refund. The LP check then activated 24.749255288205971736 shares one block after deposit and withdrew half.
+
+Each test token exposes a one-time `faucet()` allotment of 1,000 tokens per address. They are intentionally valueless and the faucet is not shown as a production product action.
+
+To run the web client against the public deployment instead of Anvil:
+
+```bash
+VITE_DEPLOYMENT_PATH=/deployments/sepolia.json npm run dev
 ```
-
-The local and live-fork gates pass. A public deployment, seeded pool, verified sources and transaction manifest are intentionally **not claimed** until the release broadcast is complete.
 
 Unichain Flashblocks are a possible future latency deployment, not a second demo path. The current mechanism and evidence use checked Ethereum `block.number` semantics.
 
