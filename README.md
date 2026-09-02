@@ -1,68 +1,184 @@
-# Firstless
+<p align="center">
+  <img src="apps/web/public/brand/firstless-mark.svg" width="112" alt="Firstless clearing gate" />
+</p>
 
-**Receive the output now. Let the complete clearing set decide the final input bill.**
+<h1 align="center">firstless</h1>
 
-Firstless is a Uniswap v4 hook that separates delivery order from final billing. A signed exact-output order receives its tokens immediately, while the completed same-block order set determines the final input charge and refundable remainder.
+<p align="center">
+  <strong>Trade now. Settle together.</strong><br />
+  Exact output arrives immediately. The completed Ethereum-block set decides the final input bill and refund.
+</p>
 
-## Quick start
+<p align="center">
+  <img alt="Uniswap v4 custom accounting" src="https://img.shields.io/badge/Uniswap_v4-custom_accounting-ff2d8d?style=for-the-badge" />
+  <img alt="Ethereum Sepolia" src="https://img.shields.io/badge/Ethereum-Sepolia-5865f2?style=for-the-badge" />
+  <img alt="Solidity 0.8.26" src="https://img.shields.io/badge/Solidity-0.8.26-363636?style=for-the-badge" />
+  <img alt="149 passing tests" src="https://img.shields.io/badge/Foundry-149_passing-f4a261?style=for-the-badge" />
+</p>
 
-Prerequisites: Node.js 22+, npm 10+, and Foundry.
+<p align="center">
+  <sub><strong>Alice</strong> wants an exact trade · <strong>Bob</strong> brings opposite flow · <strong>Eve</strong> wants ordering power · <strong>Liam</strong> stocks the pool</sub>
+</p>
+
+> [!WARNING]
+> Firstless is experimental hackathon software. It has extensive local verification but no independent audit and no claimed public deployment yet.
+
+<p align="center">
+  <img src="assets/readme/firstless-flow.svg" width="100%" alt="Animated Firstless clearing lifecycle" />
+</p>
+
+## The idea in 20 seconds
+
+Sequential AMMs let transaction position permanently influence the price each trader receives. Firstless separates **delivery order** from **final billing**:
+
+1. A trader signs an exact-output order and a maximum input.
+2. The hook collects the conservative maximum and sends the requested output immediately.
+3. Every opted-in order observed in the same Ethereum block joins one clearing set.
+4. Opposing flow nets at the opening reserve ratio; only the residual moves the curve.
+5. Each trader pays the cost their order adds to the completed set. The unused maximum returns as a backed refund.
+
+```text
+final bill(i) = cost(complete set) − cost(set without i) + rounding buffer
+refund(i)     = escrow(i) − final bill(i)
+```
+
+There is no attacker classifier and no privileged ordering rule. The same deterministic calculation applies to every order.
+
+| What traders get                           | What the protocol proves                                                       |
+| ------------------------------------------ | ------------------------------------------------------------------------------ |
+| Exact output during the signed transaction | Output is usable by another contract before settlement                         |
+| A signed maximum, never a surprise debit   | Payer, pool, recipient, call plan, nonce and block window are bound by EIP-712 |
+| A final marginal bill after the set closes | Complete-set cost is compared with the same set minus one order                |
+| A redeemable unused-input refund           | PoolManager claims back every refund liability                                 |
+| An honest scope boundary                   | Same-pool, same-set, exact-output protection—not universal MEV prevention      |
+
+## The mechanism, visually
+
+<p align="center">
+  <img src="assets/readme/firstless-architecture.svg" width="100%" alt="Firstless settlement architecture" />
+</p>
+
+The full sandwich-shaped set matters. Eve's buy, Alice's buy, and Eve's reversing sell are considered together. Eve's opposing legs meet inside the set, while Alice's residual is the part that reaches the curve.
+
+```text
+Eve buys 100 ─┐
+Alice buys 10 ├─ one Ethereum-block set ─ net opposing flow ─ residual hits curve
+Eve sells 100 ┘
+
+Alice's bill = cost(all three orders) − cost(the same set without Alice)
+```
+
+The maximum input is short-lived collateral—not the final price. Output can already be used while the final bill waits for the next Ethereum block.
+
+## Proof, not vibes
+
+<p align="center">
+  <img src="assets/readme/firstless-proof.svg" width="100%" alt="Firstless verification metrics" />
+</p>
+
+The current reproducible evidence includes:
+
+- **149 passed, 0 failed, 1 RPC-only skip** across the no-RPC Foundry run;
+- **105 adversarial checks** across accounting, economics, signatures, callbacks and lifecycle edges;
+- **40,960 stateful invariant calls** with zero handler reverts;
+- **1,000 fuzz cases per property**;
+- **100% production line and function coverage**, 93.98% statements and 60.23% branches;
+- **39 pinned Ethereum sandwich replays**: 37 profitable vanilla attacker portfolios and 0 profitable Firstless attacker portfolios; and
+- a real local transaction lifecycle covering signed execution, immediate output, settlement, refund redemption, pending LP activation and LP withdrawal.
+
+These measurements support the bounded tested claim. They do not prove the absence of every bug or every form of MEV.
+
+## Why Uniswap v4 is load-bearing
+
+Firstless is not an AMM with a decorative callback. It uses v4's core primitives as the execution and custody model:
+
+| v4 primitive          | Firstless use                                                                             |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| Hook permissions      | Intercept initialization, swaps and liquidity modification                                |
+| Custom accounting     | Run hook-owned liquidity and return swap deltas                                           |
+| `PoolManager.unlock`  | Atomically settle payer input and immediate recipient output                              |
+| ERC-6909 claims       | Keep reserves, escrow, pending deposits and refunds inside one accounted custody boundary |
+| Dynamic-fee pool flag | Keep the curve fee inside final marginal billing instead of charging twice                |
+
+See the official [v4 hooks overview](https://developers.uniswap.org/docs/protocols/v4/concepts/hooks), [custom-accounting guide](https://developers.uniswap.org/docs/protocols/v4/guides/custom-accounting), and [security guidance](https://developers.uniswap.org/docs/protocols/v4/security).
+
+## Architecture
+
+The dependency direction stays deliberately boring:
+
+```text
+Foundry artifacts → generated Wagmi client → React application
+```
+
+Production Solidity never depends on the frontend or the private research environment.
+
+### Contract responsibilities
+
+| Contract                             | Responsibility                                                                          |
+| ------------------------------------ | --------------------------------------------------------------------------------------- |
+| `FirstlessHook`                      | Ethereum-block set boundary and deployable v4 hook permissions                          |
+| `AuthenticatedMarginalClearingEpoch` | Immutable signed-router boundary and checked block window                               |
+| `MarginalClearingEpoch`              | Opposing-flow netting and leave-one-out marginal bills                                  |
+| `ClearingCreditEpoch`                | Reserves, escrow, LP shares, pending capital, fees and refund liabilities               |
+| `FirstlessRouter`                    | EIP-712 validation, payer settlement, output delivery and atomic downstream composition |
+| `FirstlessRefundRedeemer`            | PoolManager claim redemption into the underlying ERC-20                                 |
+
+## Run the real local product
+
+### Prerequisites
+
+- Node.js 22+
+- npm 10+
+- [Foundry](https://book.getfoundry.sh/getting-started/installation)
+
+### One-command demo
 
 ```bash
 git submodule update --init --recursive
-npm install
-npm run build
-npm test
+npm ci
+npm run demo
 ```
 
-Everything public runs from the repository root. Turbo coordinates the web app and Foundry package without mixing their source or generated files.
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). The command starts Anvil, deploys a fresh PoolManager, tokens, router, redeemer and flag-valid hook, initializes and seeds the pool, generates the deployment manifest, and launches the web app.
 
-## Repository layout
+The local connector uses Anvil's public test account. Never fund that key on a public chain.
+
+### Verify the lifecycle independently
+
+In another terminal:
+
+```bash
+npm run demo:verify
+```
+
+This uses an isolated port and proves:
 
 ```text
-firstless/
-├── apps/
-│   └── web/                    # React/Vite product and generated contract client
-├── packages/
-│   ├── contracts/              # Foundry project
-│   │   ├── src/
-│   │   │   ├── core/           # Clearing and accounting invariants
-│   │   │   ├── hooks/          # Deployable Ethereum hook
-│   │   │   └── periphery/      # Router and refund redemption
-│   │   ├── script/             # Deploy, localnet, and E2E scripts
-│   │   ├── test/
-│   │   │   ├── unit/
-│   │   │   ├── integration/
-│   │   │   ├── security/
-│   │   │   ├── invariant/
-│   │   │   └── fork/
-│   │   └── lib/                # Pinned Uniswap/OpenZeppelin submodule
-├── scripts/                    # Repository-level workflows
-├── turbo.json                  # Task graph and cache boundaries
-└── package.json                # Root command surface and npm workspaces
+signed order
+  → exact output delivered
+  → Ethereum block advances
+  → set settles
+  → backed claim created
+  → underlying refund redeemed
+  → pending LP deposit activates
+  → active LP shares withdraw
 ```
 
-The dependency direction is one-way:
+## Development commands
 
-```text
-contracts build artifacts → generated web client → web app
-```
+| Command                       | Purpose                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `npm run demo`                | Launch a fresh local chain and the product site                           |
+| `npm run demo:verify`         | Execute the isolated real-transaction lifecycle                           |
+| `npm run contracts:dev`       | Start Anvil and deploy the complete local Firstless stack                 |
+| `npm run contracts:stop`      | Stop only the recorded Firstless Anvil process                            |
+| `npm run dev`                 | Generate contract interfaces and start Vite                               |
+| `npm run check`               | Check Solidity formatting/build plus web types and production build       |
+| `npm test`                    | Run unit, integration, security, fuzz, invariant and optional fork suites |
+| `npm run test:coverage`       | Produce the accurate production-only coverage summary                     |
+| `npm audit --audit-level=low` | Audit JavaScript dependencies                                             |
 
-Contracts never depend on the frontend.
-
-## Commands
-
-| Command | Purpose |
-|---|---|
-| `npm run dev` | Build contract dependencies, generate ABIs, and start the web app |
-| `npm run contracts:dev` | Start Anvil and deploy the complete local Firstless stack |
-| `npm run contracts:stop` | Stop the recorded Firstless Anvil process |
-| `npm run build` | Build every package through Turbo |
-| `npm run check` | Run formatting, compilation, and static package checks |
-| `npm test` | Run the contract test task |
-| `npm run demo` | Run the isolated onchain lifecycle |
-
-Focused contract suites remain available from the root:
+Focused suites:
 
 ```bash
 npm run test:unit --workspace @firstless/contracts
@@ -72,78 +188,90 @@ npm run test:invariant --workspace @firstless/contracts
 npm run test:e2e --workspace @firstless/contracts
 ```
 
-## Run the local product
+## Repository map
 
-Start the chain in one terminal:
+```text
+firstless/
+├── apps/
+│   └── web/                    React/Vite story and live product dashboard
+├── packages/
+│   └── contracts/
+│       ├── src/
+│       │   ├── core/           Clearing, credit, liquidity and custody invariants
+│       │   ├── hooks/          Deployable Ethereum Uniswap v4 hook
+│       │   └── periphery/      Signed router and refund redeemer
+│       ├── script/             Deployment, localnet and E2E workflows
+│       ├── test/
+│       │   ├── unit/           Mechanism and boundary behavior
+│       │   ├── integration/    Real PoolManager and signed-router seams
+│       │   ├── security/       Adversarial and economic matrices
+│       │   ├── invariant/      Stateful lifecycle properties
+│       │   └── fork/           Opt-in Ethereum Sepolia dependency check
+│       └── lib/                Pinned Uniswap/OpenZeppelin submodule
+├── assets/readme/              README diagrams and proof visuals
+├── scripts/                    Repository-level workflows
+├── turbo.json                  Task graph and cache boundaries
+└── package.json                npm workspace command surface
+```
+
+## Ethereum Sepolia
+
+The judged artifact is Ethereum-only and targets the official Sepolia v4 PoolManager:
+
+```text
+0xE03A1074c86CFeDd5C142C4F04F1a1536e203543
+```
+
+The local and live-fork gates pass. A public deployment, seeded pool, verified sources and transaction manifest are intentionally **not claimed** until the release broadcast is complete.
+
+Unichain Flashblocks are a possible future latency deployment, not a second demo path. The current mechanism and evidence use checked Ethereum `block.number` semantics.
+
+## Security boundaries
+
+| Supported now                                  | Explicitly outside the claim                                     |
+| ---------------------------------------------- | ---------------------------------------------------------------- |
+| Exact-output conventional ERC-20 pairs         | Native ETH, fee-on-transfer, rebasing or callback-bearing tokens |
+| Orders through the immutable Firstless router  | Direct arbitrary PoolManager routing                             |
+| One Firstless pool and Ethereum-block set      | Cross-pool and cross-block strategies                            |
+| Backed short-lived credit and refunds          | Censorship resistance or builder guarantees                      |
+| Tested sandwich and harm-allocation properties | Universal MEV prevention or external-price LVR protection        |
+| Pending-to-active LP lifecycle                 | Independent audit or production-readiness certification          |
+
+Read [.github/SECURITY.md](.github/SECURITY.md) before changing accounting, authentication, hook permissions or liquidity behavior.
+
+<details>
+<summary><strong>Troubleshooting the local demo</strong></summary>
+
+### Port 8546 is already in use
+
+The launcher refuses to kill an unknown process. Stop it yourself or choose another Firstless RPC port:
+
+```bash
+FIRSTLESS_RPC_PORT=9546 npm run contracts:dev
+```
+
+### The dashboard says the deployment is missing
+
+Start the chain before Vite so `apps/web/public/deployments/local.json` exists:
 
 ```bash
 npm run contracts:dev
-```
-
-Start the web app in another:
-
-```bash
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. The web app reads the deployment generated at `apps/web/public/deployments/local.json`, signs a real EIP-712 order, and sends real local transactions.
+### Wallet providers collide
 
-## How the mechanism works
+Use the built-in **Local demo wallet** connector or a clean browser profile with one injected wallet. Multiple extensions may race to define `window.ethereum`.
 
-1. A user signs an exact-output order, such as “receive 10 WETH, spend at most 25,000 USDC.”
-2. `FirstlessRouter` verifies the payer, pool, recipient, nonce, deadline, call plan, and block window.
-3. The hook collects a conservative input maximum and delivers the exact output in the same transaction.
-4. All opted-in orders observed in the same Ethereum block join one clearing set.
-5. After the block advances, opposing flow nets at the set’s opening reserve ratio and only the residual moves the curve.
-6. Each order pays the gross cost that disappears when that order is removed from the complete set. The unused maximum becomes a backed PoolManager claim redeemable as the underlying token.
+### Contract interfaces look stale
 
-```text
-final bill(i) = cost(complete set) - cost(set without i) + rounding buffer
-refund(i)     = escrow(i) - final bill(i)
-```
-
-The hook applies the same rule to every order. It does not label addresses as attackers.
-
-## Implemented contracts
-
-- `FirstlessHook.sol`: judged Ethereum Sepolia hook using `block.number` as the clearing clock.
-- `FirstlessRouter.sol`: EIP-712 authentication, payer settlement, and immediate output delivery.
-- `MarginalClearingEpoch.sol`: set netting and leave-one-out charging.
-- `FirstlessRefundRedeemer.sol`: converts backed PoolManager refund claims into underlying tokens.
-- `ClearingCreditEpoch.sol`: liquidity, LP shares, escrow, refunds, and settlement liabilities.
-
-## Verification status
-
-The current no-RPC Foundry run reports 149 passed, 1 explicitly skipped Ethereum Sepolia fork check, and 0 failed across 150 entries. That includes 105 checks across four security suites, five stateful lifecycle invariants with 8,192 calls each, and 1,000 fuzz cases per property. The accurate production-only coverage gate reports 100% lines and functions, 93.98% statements, and 60.23% branches.
-
-See the [security policy](.github/SECURITY.md) for exact public claims and exclusions.
-
-## Ethereum Sepolia deployment
-
-The judged artifact is locked to Ethereum Sepolia and the official v4 PoolManager at `0xE03A1074c86CFeDd5C142C4F04F1a1536e203543`.
+Regenerate them from Foundry artifacts; do not hand-edit the generated ABI:
 
 ```bash
-cd packages/contracts
-cp .env.example .env
-# Fill PRIVATE_KEY and ETHEREUM_SEPOLIA_RPC_URL, then load the file.
-set -a
-source .env
-set +a
-forge script script/Deploy.s.sol:DeployFirstless \
-  --rpc-url "$ETHEREUM_SEPOLIA_RPC_URL" \
-  --broadcast
+npm run generate:contracts --workspace @firstless/web
 ```
 
-No public testnet or mainnet deployment is claimed until broadcast and verification are complete.
-
-## Boundaries
-
-- Exact-output conventional ERC-20 pairs only; native ETH should be wrapped as WETH.
-- Protection covers orders routed through the same Firstless pool and clearing set.
-- Cross-set, cross-pool, censorship, CEX-DEX LVR, and external price movement remain outside the claim.
-- Direct PoolManager routers cannot bypass the signed-order boundary.
-- Pending LP assets remain outside active reserves until provider-owned activation.
-- The code uses OpenZeppelin’s experimental custom-accounting base and has not been independently audited.
+</details>
 
 ## License
 

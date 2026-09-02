@@ -9,6 +9,7 @@ import ExternalLink from "lucide-react/dist/esm/icons/external-link.mjs";
 import History from "lucide-react/dist/esm/icons/history.mjs";
 import LayoutDashboard from "lucide-react/dist/esm/icons/layout-dashboard.mjs";
 import LoaderCircle from "lucide-react/dist/esm/icons/loader-circle.mjs";
+import LockKeyhole from "lucide-react/dist/esm/icons/lock-keyhole.mjs";
 import RefreshCcw from "lucide-react/dist/esm/icons/refresh-ccw.mjs";
 import Wallet from "lucide-react/dist/esm/icons/wallet.mjs";
 import {
@@ -33,11 +34,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Brand } from "@/components/Brand";
-import { ClearingStation } from "@/components/ClearingStation";
 import {
   currencyId,
   erc20Abi,
@@ -58,6 +59,14 @@ type DashboardPageProps = {
 };
 
 type Section = "trade" | "liquidity" | "refunds" | "activity";
+
+function walletErrorMessage(error: unknown) {
+  const message = errorMessage(error);
+  if (/user rejected|rejected the request|request rejected|cancelled/i.test(message)) {
+    return "Connection cancelled. Nothing changed—choose a wallet whenever you're ready.";
+  }
+  return message;
+}
 
 type UserOrder = {
   id: bigint;
@@ -410,7 +419,7 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
   const [runtimeError, setRuntimeError] = useState<string>();
   const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot);
   const [amountOut, setAmountOut] = useState("10");
-  const [tokenOut0, setTokenOut0] = useState(false);
+  const [tokenOut0, setTokenOut0] = useState(true);
   const [maximumInput, setMaximumInput] = useState<bigint>();
   const [lp0, setLp0] = useState("100");
   const [lp1, setLp1] = useState("100");
@@ -419,6 +428,8 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
   const [notice, setNotice] = useState<string>();
   const [actionError, setActionError] = useState<string>();
   const [showWallets, setShowWallets] = useState(false);
+  const [walletError, setWalletError] = useState<string>();
+  const [connectingConnector, setConnectingConnector] = useState<string>();
 
   const connection = useConnection();
   const connectors = useConnectors();
@@ -530,13 +541,19 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
   };
 
   const connectWith = async (connector: Connector) => {
-    if (!desiredChainId) return;
-    setActionError(undefined);
+    if (!desiredChainId) {
+      setWalletError("The deployment is still loading. Try again in a moment.");
+      return;
+    }
+    setWalletError(undefined);
+    setConnectingConnector(connector.uid);
     try {
       await connect.mutateAsync({ connector, chainId: desiredChainId });
       setShowWallets(false);
     } catch (error) {
-      setActionError(errorMessage(error));
+      setWalletError(walletErrorMessage(error));
+    } finally {
+      setConnectingConnector(undefined);
     }
   };
 
@@ -693,6 +710,17 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
   const isEpochOpen = snapshot.openedAt !== 0n;
   const canSettle = isEpochOpen && snapshot.blockNumber > snapshot.openedAt;
   const visibleConnectors = connectors.filter((connector) => deployment?.mode === "local" ? connector.type === "mock" || connector.type === "injected" : connector.type !== "mock");
+  const demoConnector = visibleConnectors.find((connector) => connector.type === "mock");
+  const browserConnectors = visibleConnectors.filter((connector) => connector.type !== "mock");
+  const hasNamedBrowserWallet = browserConnectors.some((connector) => connector.name !== "Injected");
+  const presentedWallets = browserConnectors
+    .filter((connector) => connector.name !== "Injected" || !hasNamedBrowserWallet)
+    .sort((a, b) => {
+      const preferred = ["MetaMask", "Rabby Wallet", "Phantom", "Coinbase Wallet", "WalletConnect", "Safe"];
+      const aRank = preferred.indexOf(a.name);
+      const bRank = preferred.indexOf(b.name);
+      return (aRank === -1 ? preferred.length : aRank) - (bRank === -1 ? preferred.length : bRank);
+    });
   const stages = [
     ["Signed", "Limits locked"],
     ["Output sent", "Immediately usable"],
@@ -731,7 +759,11 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
         <header className="dash-topbar">
           <div>
             <p>Firstless control room</p>
-            <span>{deployment ? `${deployment.chainName} · block ${snapshot.blockNumber}` : "Loading deployment…"}</span>
+            <span>
+              {deployment
+                ? `${deployment.mode === "local" ? "Firstless Local · Ethereum blocks" : deployment.chainName} · block ${snapshot.blockNumber}`
+                : "Loading deployment…"}
+            </span>
           </div>
           <div className="dash-topbar__actions">
             {runtimeError ? <Badge className="badge-error">RPC error</Badge> : <Badge className="badge-live"><i /> Live contract state</Badge>}
@@ -741,17 +773,87 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
                 <Button variant="outline" onClick={() => disconnect.mutate()}><Wallet aria-hidden="true" /> {shortAddress(connection.address)}</Button>
               </div>
             ) : (
-              <Button variant="outline" onClick={() => setShowWallets((value) => !value)}><Wallet aria-hidden="true" /> Connect wallet</Button>
-            )}
-            {showWallets && (
-              <div className="wallet-menu" role="dialog" aria-label="Choose a wallet">
-                {visibleConnectors.map((connector) => (
-                  <button key={connector.uid} onClick={() => void connectWith(connector)}>
-                    <strong>{connector.type === "mock" ? "Local demo wallet" : connector.name}</strong>
-                    <span>{connector.type === "mock" ? "Unlocked Anvil account" : "Wagmi connector"}</span>
-                  </button>
-                ))}
-              </div>
+              <Dialog
+                open={showWallets}
+                onOpenChange={(open) => {
+                  setShowWallets(open);
+                  if (!open) setWalletError(undefined);
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button variant="outline"><Wallet aria-hidden="true" /> Connect wallet</Button>
+                </DialogTrigger>
+                <DialogContent className="wallet-dialog">
+                  <DialogHeader className="wallet-dialog__header">
+                    <span className="wallet-dialog__eyebrow">Firstless access</span>
+                    <DialogTitle>{deployment?.mode === "local" ? "Step into the live demo" : "Connect to Firstless"}</DialogTitle>
+                    <DialogDescription>
+                      {deployment?.mode === "local"
+                        ? "Use the funded local account for the fastest walkthrough, or bring an installed browser wallet."
+                        : `Choose a wallet to use Firstless on ${deployment?.chainName || "the configured network"}.`}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="wallet-dialog__body">
+                    {demoConnector && (
+                      <button
+                        className="wallet-option wallet-option--demo"
+                        disabled={Boolean(connectingConnector)}
+                        aria-busy={connectingConnector === demoConnector.uid}
+                        onClick={() => void connectWith(demoConnector)}
+                      >
+                        <span className="wallet-option__icon"><img src="/brand/firstless-mark.svg" alt="" /></span>
+                        <span className="wallet-option__copy">
+                          <strong>Start local demo</strong>
+                          <small>Funded Anvil account · no extension required</small>
+                        </span>
+                        {connectingConnector === demoConnector.uid
+                          ? <LoaderCircle className="spin" aria-hidden="true" />
+                          : <span className="wallet-option__tag">Recommended</span>}
+                      </button>
+                    )}
+
+                    {presentedWallets.length > 0 && (
+                      <section className="wallet-browser-options" aria-labelledby="browser-wallets-title">
+                        <div className="wallet-browser-options__heading">
+                          <span id="browser-wallets-title">{demoConnector ? "Or use an installed wallet" : "Available wallets"}</span>
+                          <small>{presentedWallets.length} detected</small>
+                        </div>
+                        <div className="wallet-browser-options__grid">
+                          {presentedWallets.map((connector) => {
+                            const label = connector.name === "Injected" ? "Browser wallet" : connector.name;
+                            return (
+                              <button
+                                className="wallet-option wallet-option--browser"
+                                key={connector.uid}
+                                disabled={Boolean(connectingConnector)}
+                                aria-busy={connectingConnector === connector.uid}
+                                onClick={() => void connectWith(connector)}
+                              >
+                                <span className="wallet-option__icon">
+                                  {connector.icon ? <img src={connector.icon} alt="" /> : <Wallet aria-hidden="true" />}
+                                </span>
+                                <span className="wallet-option__copy">
+                                  <strong>{label}</strong>
+                                  <small>{connector.name === "Injected" ? "Use your browser extension" : "Detected in this browser"}</small>
+                                </span>
+                                {connectingConnector === connector.uid && <LoaderCircle className="spin" aria-hidden="true" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    )}
+
+                    {walletError && <div className="wallet-dialog__error" role="alert">{walletError}</div>}
+
+                    <div className="wallet-dialog__trust">
+                      <LockKeyhole aria-hidden="true" />
+                      <span>Connecting only shares your public address. Firstless asks for signatures when you take an onchain action.</span>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             )}
           </div>
         </header>
@@ -846,9 +948,21 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
 
             <aside className="round-panel">
               <div className="round-panel__heading"><div><p>Ethereum block set</p><span className="round-panel__chain">Hook clock · block.number</span></div><Badge className={isEpochOpen ? "badge-live" : "badge-idle"}>{isEpochOpen && <i />} {isEpochOpen ? "Open" : "Idle"}</Badge></div>
-              <div className="round-panel__art"><ClearingStation scene={isEpochOpen ? 2 : 0} compact /></div>
+              <section className="round-panel__status" aria-label="Current Ethereum block set status">
+                <div className="round-panel__state">
+                  <span>Set status</span>
+                  <strong>{isEpochOpen ? "Collecting this block" : "Waiting for first order"}</strong>
+                  <p>{isEpochOpen ? "Exact outputs have moved. New same-block orders can still join before settlement." : "The next signed exact-output order opens a new set in its execution block."}</p>
+                </div>
+                <dl>
+                  <div><dt>Set ID</dt><dd>{isEpochOpen ? `#${snapshot.epochId}` : "—"}</dd></div>
+                  <div><dt>Orders</dt><dd>{snapshot.ordersInSet.toString()}</dd></div>
+                  <div><dt>Opened block</dt><dd>{isEpochOpen ? snapshot.openedAt.toString() : "—"}</dd></div>
+                  <div><dt>Current block</dt><dd>{snapshot.blockNumber.toString()}</dd></div>
+                </dl>
+              </section>
               <Separator />
-              <ol className="round-steps">{stages.map(([title, detail], index) => <li key={title} className={isEpochOpen ? (index < 3 ? "is-done" : index === 3 ? "is-current" : "") : ""}><span>{isEpochOpen && index < 3 ? <Check aria-hidden="true" /> : index + 1}</span><div><strong>{title}</strong><small>{detail}</small></div></li>)}</ol>
+              <ol className="round-steps">{stages.map(([title, detail], index) => <li key={title} className={isEpochOpen ? (index < 2 ? "is-done" : index === 2 ? "is-current" : "") : ""}><span>{isEpochOpen && index < 2 ? <Check aria-hidden="true" /> : index + 1}</span><div><strong>{title}</strong><small>{detail}</small></div></li>)}</ol>
               <Alert className="round-note"><Clock3 aria-hidden="true" /><AlertTitle>{isEpochOpen ? `Set #${snapshot.epochId} opened in block ${snapshot.openedAt}` : "No set is waiting"}</AlertTitle><AlertDescription>{isEpochOpen ? "The output has already moved. Only settlement and refunds remain." : "The next signed order opens a set in its execution block."}</AlertDescription></Alert>
               <div className="round-metrics"><div><span>Fee buckets</span><strong>{amount(snapshot.fee0, deployment?.token0Decimals)} / {amount(snapshot.fee1, deployment?.token1Decimals)}</strong></div><div><span>Pending LP assets</span><strong>{amount(snapshot.pending0, deployment?.token0Decimals)} / {amount(snapshot.pending1, deployment?.token1Decimals)}</strong></div></div>
               <Button className="settle-button" disabled={!wallet || !canSettle || Boolean(busy)} onClick={() => void settle()}>{busy === "Set settlement" ? <LoaderCircle className="spin" /> : <RefreshCcw />} {canSettle ? "Settle completed set" : isEpochOpen ? "Waiting for next block" : "No set to settle"}</Button>

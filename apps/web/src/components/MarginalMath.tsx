@@ -1,33 +1,32 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useInView, useReducedMotion } from "motion/react";
-import ArrowRight from "lucide-react/dist/esm/icons/arrow-right.mjs";
 import Pause from "lucide-react/dist/esm/icons/pause.mjs";
 import Play from "lucide-react/dist/esm/icons/play.mjs";
 
 const steps = [
   {
-    label: "The complete set",
-    tab: "Whole block",
-    title: "Put all three legs on the table.",
-    body: "Eve buys 100, Alice buys 10, then Eve sells 100 in the same block. Firstless records the complete set before anybody’s final bill is known.",
+    label: "1 · Complete set",
+    tab: "Set",
+    title: "Price the completed block, not its ordering.",
+    body: "The calculation starts only after Eve’s buy, Alice’s buy, and Eve’s reversing sell are all known. Every order uses the same opening reserves.",
   },
   {
-    label: "Opposing flow nets",
-    tab: "Net flow",
-    title: "Eve’s round trip meets itself.",
-    body: "The 100-token buy and the opposite 100-token sell cross at the opening reserve ratio. Alice’s 10-token residual is the only part left to move the curve.",
+    label: "2 · Net opposing flow",
+    tab: "Net",
+    title: "Eve’s opposite legs meet before the curve.",
+    body: "At the opening 1:1 reserve ratio, Eve’s 100-token buy and 100-token sell offset. Alice’s 10 fETH is the residual that reaches the AMM curve.",
   },
   {
-    label: "The set without Alice",
-    tab: "Without Alice",
-    title: "Ask what Alice added.",
-    body: "For Alice’s input token, compare the complete set with the exact same set after removing only Alice. Eve is present in both calculations, so her ordering position cannot be handed to Alice as a bill.",
+    label: "3 · Leave Alice out once",
+    tab: "Subtract",
+    title: "Run the same block again without Alice.",
+    body: "The comparison keeps Eve’s two orders and the same opening reserves. Removing only Alice isolates the pool cost caused by Alice’s exact-output request.",
   },
   {
-    label: "Alice’s marginal bill",
-    tab: "Final bill",
-    title: "Charge the difference. Return the rest.",
-    body: "Alice pays the incremental cost her order adds. Eve’s two legs each pay their own marginal contribution and trading fee, so the round trip finishes negative in the tested model.",
+    label: "4 · Alice’s final bill",
+    tab: "Bill",
+    title: "Charge the difference. Refund the unused maximum.",
+    body: "Alice receives 10 fETH immediately and settles 10.1314 fUSD plus the eight-wei rounding buffer. Her larger signed maximum was temporary collateral.",
   },
 ] as const;
 
@@ -37,30 +36,28 @@ type OrderCardProps = {
   token: "fETH" | "fUSD";
   tone: "eve" | "alice";
   motionState: "full" | "net" | "without" | "bill";
-  side: "left" | "middle" | "right";
 };
 
-function OrderCard({ actor, action, token, tone, motionState, side }: OrderCardProps) {
+function OrderCard({ actor, action, token, tone, motionState }: OrderCardProps) {
   const isEve = tone === "eve";
-  const isNetted = motionState !== "full" && isEve;
+  const isNetted = motionState === "net" && isEve;
   const isRemoved = motionState === "without" && !isEve;
-  const direction = side === "left" ? 92 : side === "right" ? -92 : 0;
+  const isFocused = motionState === "bill" && !isEve;
 
   return (
     <motion.div
-      className={`marginal-order marginal-order--${tone}`}
+      className={`marginal-order marginal-order--${tone}${isNetted ? " is-netted" : ""}${isRemoved ? " is-removed" : ""}${isFocused ? " is-focused" : ""}`}
       animate={{
-        x: isNetted ? direction : 0,
-        y: isRemoved ? 24 : 0,
-        opacity: isRemoved ? 0.14 : isNetted ? 0.34 : 1,
-        scale: isNetted ? 0.9 : isRemoved ? 0.94 : 1,
+        opacity: isRemoved ? 0.22 : isNetted ? 0.48 : 1,
+        scale: isRemoved || isNetted ? 0.98 : 1,
       }}
-      transition={{ type: "spring", stiffness: 180, damping: 24 }}
+      transition={{ duration: 0.32, ease: "easeOut" }}
     >
       <span>{actor}</span>
       <strong>{action}</strong>
       <small>{token}</small>
-      {isNetted && <motion.i initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} />}
+      {isNetted && <motion.i initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 0.28 }} />}
+      {isRemoved && <em>removed for comparison</em>}
     </motion.div>
   );
 }
@@ -74,7 +71,7 @@ export function MarginalMath() {
 
   useEffect(() => {
     if (!inView || !playing || reduceMotion) return;
-    const interval = window.setInterval(() => setStep((value) => (value + 1) % steps.length), 3300);
+    const interval = window.setInterval(() => setStep((value) => (value + 1) % steps.length), 4400);
     return () => window.clearInterval(interval);
   }, [inView, playing, reduceMotion]);
 
@@ -83,70 +80,80 @@ export function MarginalMath() {
   return (
     <section ref={sectionRef} id="math" className="marginal-math" aria-labelledby="marginal-math-title">
       <div className="marginal-math__intro">
-        <p>The math, in motion</p>
-        <h2 id="marginal-math-title">Full set. Minus the set without me.</h2>
+        <p>The bill in one equation</p>
+        <h2 id="marginal-math-title">What did Alice add?</h2>
         <p className="marginal-math__lede">
-          An illustrative 1:1 pool with 1,000 units on each side and a 30 bps fee. Displayed decimals omit the tiny raw-unit rounding buffer.
+          One 1:1 pool. One completed Ethereum block. Alice pays only the extra fUSD cost created by her 10 fETH exact-output order.
         </p>
       </div>
 
       <div className="marginal-machine">
         <div className="marginal-machine__orders" aria-label="One sandwich-shaped clearing set">
-          <OrderCard actor="Eve" action="buys 100" token="fETH" tone="eve" motionState={motionState} side="left" />
-          <OrderCard actor="Alice" action="buys 10" token="fETH" tone="alice" motionState={motionState} side="middle" />
-          <OrderCard actor="Eve" action="sells for 100" token="fUSD" tone="eve" motionState={motionState} side="right" />
+          <OrderCard actor="Eve" action="buys 100" token="fETH" tone="eve" motionState={motionState} />
+          <OrderCard actor="Alice" action="buys 10" token="fETH" tone="alice" motionState={motionState} />
+          <OrderCard actor="Eve" action="sells for 100" token="fUSD" tone="eve" motionState={motionState} />
         </div>
 
-        <div className="marginal-machine__rail" aria-hidden="true">
-          <motion.span animate={{ scaleX: step >= 1 ? 1 : 0.12 }} />
-          <i>opening reserve ratio</i>
+        <div className="marginal-machine__context">
+          <span>Opening reserves</span>
+          <strong>1,000 fETH : 1,000 fUSD</strong>
+          <small>30 bps fee · same snapshot in both calculations</small>
+        </div>
+
+        <div className="marginal-equation" aria-label="110.4323 fUSD minus 100.3009 fUSD equals Alice's 10.1314 fUSD marginal bill">
+          <div className={`marginal-equation__term${step === 0 || step === 2 ? " is-focus" : ""}`}>
+            <span>Cost of all 3 orders</span>
+            <strong>110.4323</strong>
+            <small>fUSD</small>
+          </div>
+          <b aria-hidden="true">−</b>
+          <div className={`marginal-equation__term${step === 2 ? " is-focus" : ""}`}>
+            <span>Cost without Alice</span>
+            <strong>100.3009</strong>
+            <small>fUSD</small>
+          </div>
+          <b aria-hidden="true">=</b>
+          <div className={`marginal-equation__term marginal-equation__term--result${step === 3 ? " is-focus" : ""}`}>
+            <span>Alice’s marginal bill</span>
+            <strong>10.1314</strong>
+            <small>fUSD + 8 wei buffer</small>
+          </div>
         </div>
 
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
-            className="marginal-machine__result"
-            initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+            className="marginal-machine__explanation"
+            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={reduceMotion ? undefined : { opacity: 0, y: -12 }}
-            transition={{ duration: reduceMotion ? 0 : 0.3 }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
+            transition={{ duration: reduceMotion ? 0 : 0.28, ease: "easeOut" }}
           >
             {step === 0 && (
-              <div className="marginal-set-card">
-                <span>complete set</span>
-                <strong>3 signed orders</strong>
-                <small>No “attacker” label is trusted onchain.</small>
+              <div className="marginal-set-line">
+                <span>Completed set</span>
+                <strong>Eve buy + Alice buy + Eve sell</strong>
+                <small>All three orders are known before any final bill is assigned.</small>
               </div>
             )}
             {step === 1 && (
               <div className="marginal-net-card">
-                <div><span>Eve buy</span><strong>100 fETH</strong></div>
-                <b>nets</b>
-                <div><span>Eve sell</span><strong>100 fUSD @ 1:1</strong></div>
-                <ArrowRight aria-hidden="true" />
-                <div className="is-residual"><span>curve residual</span><strong>Alice’s 10 fETH</strong></div>
+                <div><span>Eve’s opposite legs</span><strong>100 ↔ 100</strong><small>net at the opening 1:1 ratio</small></div>
+                <b aria-hidden="true">→</b>
+                <div className="is-residual"><span>Residual sent to curve</span><strong>10 fETH</strong><small>Alice’s requested output</small></div>
               </div>
             )}
             {step === 2 && (
-              <div className="marginal-subtraction">
-                <div><span>full-set fUSD cost</span><strong>110.432</strong></div>
-                <b>minus</b>
-                <div><span>without Alice</span><strong>100.301</strong></div>
+              <div className="marginal-compare">
+                <div><span>Complete set</span><strong>Eve + Alice + Eve</strong></div>
+                <b>remove Alice once</b>
+                <div><span>Comparison set</span><strong>Eve + Eve</strong></div>
               </div>
             )}
             {step === 3 && (
-              <div className="marginal-final">
-                <div className="marginal-final__formula">
-                  <span>Alice’s final bill</span>
-                  <strong>110.432 − 100.301</strong>
-                  <b>10.131 fUSD + buffer</b>
-                </div>
-                <div className="marginal-final__eve">
-                  <span>Eve’s round trip</span>
-                  <strong>receives 100 + 100</strong>
-                  <b>pays 100.402 + 100.301</b>
-                  <small>negative before any external gas</small>
-                </div>
+              <div className="marginal-outcome">
+                <div><span>Alice receives immediately</span><strong>10 fETH</strong></div>
+                <div><span>Alice settles after the block</span><strong>10.1314 fUSD</strong><small>plus an 8 wei rounding buffer</small></div>
               </div>
             )}
           </motion.div>
@@ -175,7 +182,7 @@ export function MarginalMath() {
                 }}
               >
                 {step === index && <motion.span layoutId="marginal-active-step" transition={{ type: "spring", stiffness: 360, damping: 32 }} />}
-                <b>{item.tab}</b>
+                <b>{index + 1}. {item.tab}</b>
               </button>
             ))}
           </div>
@@ -197,7 +204,7 @@ export function MarginalMath() {
       </AnimatePresence>
 
       <p className="marginal-math__boundary">
-        Honest boundary: a same-direction fake can still worsen a victim’s marginal bill. The protection is that the fake pays at least the harm it creates; the historical sandwich claim concerns opposing attack legs inside the same set.
+        Exact example: 1,000 / 1,000 opening reserves and a 30 bps fee. Displayed values are rounded to four decimals; the contract adds an 8 wei buffer at this 1:1 reserve ratio. No attacker label is trusted onchain.
       </p>
     </section>
   );

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import ArrowDownRight from "lucide-react/dist/esm/icons/arrow-down-right.mjs";
 import ArrowRight from "lucide-react/dist/esm/icons/arrow-right.mjs";
@@ -11,14 +11,76 @@ type LandingPageProps = {
   onOpenDashboard: () => void;
 };
 
+type MotionAssetName = "alice" | "bob" | "eve" | "liam" | "clearing-table" | "liquidity-platform";
+
+const motionAssets: Record<MotionAssetName, string> = {
+  alice: "/motion/alice.webm",
+  bob: "/motion/bob.webm",
+  eve: "/motion/eve.webm",
+  liam: "/motion/liam.webm",
+  "clearing-table": "/motion/clearing-table.webm",
+  "liquidity-platform": "/motion/liquidity-platform.webm",
+};
+
+function MotionAsset({
+  name,
+  className,
+  reduceMotion,
+}: {
+  name: MotionAssetName;
+  className: string;
+  reduceMotion: boolean | null;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoSrc = motionAssets[name];
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || reduceMotion) return;
+
+    if (!("IntersectionObserver" in window)) {
+      void video.play().catch(() => undefined);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          void video.play().catch(() => undefined);
+        } else {
+          video.pause();
+        }
+      },
+      { threshold: .08 },
+    );
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, [reduceMotion]);
+
+  return (
+    <video
+      ref={videoRef}
+      className={className}
+      loop={!reduceMotion}
+      muted
+      playsInline
+      preload={reduceMotion ? "auto" : "metadata"}
+      aria-hidden="true"
+      tabIndex={-1}
+    >
+      <source src={videoSrc} type="video/webm" />
+    </video>
+  );
+}
+
 const scenes = [
   {
     id: "promise",
     alt: "Alice makes a precise token trade while Eve is blocked from cutting ahead",
     marker: "Alice makes a promise",
-    title: "Exactly 25. Not roughly 25.",
+    title: "Exactly 10. Not roughly 10.",
     body: "Alice signs the amount she wants and the most she will pay. Nobody carrying her order can change either number.",
-    side: "Her 25 tokens are usable now.",
+    side: "Her 10 fETH is usable now.",
     signal: "signed",
   },
   {
@@ -33,9 +95,9 @@ const scenes = [
   {
     id: "clear",
     alt: "Alice and Bob exchange opposite tokens while only a small remainder reaches the pool",
-    marker: "The round clears together",
+    marker: "The block set clears together",
     title: "Alice meets Bob before the pool.",
-    body: "Their opposite needs cancel each other. Only the little leftover reaches the price curve, so arriving first inside the round gives no special deal.",
+    body: "Their opposite needs cancel each other. Only the little leftover reaches the price curve, so arriving first inside the block set gives no special deal.",
     side: "One set. Individual marginal bills.",
     signal: "fair",
   },
@@ -44,7 +106,7 @@ const scenes = [
     alt: "Liam puts two tokens on a waiting platform before receiving an LP ownership ticket",
     marker: "Liam stocks the pool",
     title: "His money waits. His ownership waits too.",
-    body: "Liam deposits both tokens. One round later, they join at the pool’s current fair value and his LP shares appear at the same moment.",
+    body: "Liam deposits both tokens. After a later Ethereum block, they activate at the pool’s current reserve ratio and his LP shares appear at the same moment.",
     side: "No shares means no old fees to grab.",
     signal: "pending",
   },
@@ -90,13 +152,19 @@ function SplitWords({ children }: { children: string }) {
     <>
       {children.split(" ").map((word, index) => (
         <motion.span
+          className="fl-word-mask"
           key={`${word}-${index}`}
-          initial={{ y: "115%" }}
-          whileInView={{ y: 0 }}
+          initial="hidden"
+          whileInView="visible"
           viewport={{ once: true, amount: .8 }}
-          transition={{ duration: 0.72, delay: index * 0.035, ease: [0.22, 1, 0.36, 1] }}
         >
-          {word}&nbsp;
+          <motion.span
+            className="fl-word"
+            variants={{ hidden: { y: "115%" }, visible: { y: 0 } }}
+            transition={{ duration: 0.72, delay: index * 0.035, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {word}&nbsp;
+          </motion.span>
         </motion.span>
       ))}
     </>
@@ -104,61 +172,9 @@ function SplitWords({ children }: { children: string }) {
 }
 
 function ClearingTable({ reduceMotion }: { reduceMotion: boolean | null }) {
-  const cycle = {
-    duration: 4.2,
-    repeat: reduceMotion ? 0 : Number.POSITIVE_INFINITY,
-    times: [0, .22, .48, .76, 1],
-    ease: [0.42, 0, 0.2, 1] as const,
-  };
-
   return (
     <div className="scene-table scene-table--animated" aria-hidden="true">
-      <img className="scene-table__base" src="/props/clearing-table.svg" alt="" />
-      <svg className="scene-table__motion" viewBox="0 0 1569 782" role="presentation">
-        <ellipse className="scene-table__clean-surface" cx="784.5" cy="280" rx="680" ry="170" />
-
-        <path className="scene-table__route" d="M278 279C430 279 515 269 632 251" />
-        <path className="scene-table__route" d="M1291 279c-152 0-237-10-354-28" />
-
-        <g className="scene-table__puck scene-table__puck--blue">
-          <path d="M188 251v55c0 24 31 43 69 43s69-19 69-43v-55z" />
-          <ellipse cx="257" cy="251" rx="69" ry="35" />
-        </g>
-        <g className="scene-table__puck scene-table__puck--rust">
-          <path d="M1243 251v55c0 24 31 43 69 43s69-19 69-43v-55z" />
-          <ellipse cx="1312" cy="251" rx="69" ry="35" />
-        </g>
-
-        <motion.g
-          className="scene-table__small-puck scene-table__small-puck--blue"
-          animate={reduceMotion ? { x: 262 } : { x: [0, 0, 262, 262, 0] }}
-          transition={cycle}
-        >
-          <path d="M372 257v30c0 13 18 24 40 24s40-11 40-24v-30z" />
-          <ellipse cx="412" cy="257" rx="40" ry="21" />
-        </motion.g>
-        <motion.g
-          className="scene-table__small-puck scene-table__small-puck--rust"
-          animate={reduceMotion ? { x: -262 } : { x: [0, 0, -262, -262, 0] }}
-          transition={cycle}
-        >
-          <path d="M1117 257v30c0 13 18 24 40 24s40-11 40-24v-30z" />
-          <ellipse cx="1157" cy="257" rx="40" ry="21" />
-        </motion.g>
-
-        <g className="scene-table__seal">
-          <ellipse className="scene-table__seal-depth" cx="784.5" cy="291" rx="151" ry="72" />
-          <ellipse className="scene-table__seal-face" cx="784.5" cy="278" rx="151" ry="72" />
-          <motion.g
-            animate={reduceMotion ? { scale: 1, opacity: 1 } : { scale: [.92, .92, 1, 1, .92], opacity: [.62, .62, 1, 1, .62] }}
-            transition={cycle}
-            style={{ transformOrigin: "784.5px 278px" }}
-          >
-            <path className="scene-table__hook scene-table__hook--blue" d="M758 238c-47 0-84 18-84 40s37 40 84 40c25 0 42-9 42-22 0-10-10-17-25-18 15-2 25-9 25-19 0-12-17-21-42-21z" />
-            <path className="scene-table__hook scene-table__hook--rust" d="M811 238c47 0 84 18 84 40s-37 40-84 40c-25 0-42-9-42-22 0-10 10-17 25-18-15-2-25-9-25-19 0-12 17-21 42-21z" />
-          </motion.g>
-        </g>
-      </svg>
+      <MotionAsset name="clearing-table" className="scene-table__base" reduceMotion={reduceMotion} />
     </div>
   );
 }
@@ -175,29 +191,29 @@ function SceneArtwork({ id, alt, reduceMotion }: { id: string; alt: string; redu
     >
       {id === "promise" && (
         <>
-          <img className="scene-alice" src="/characters/alice.svg" alt="" />
+          <MotionAsset name="alice" className="scene-alice" reduceMotion={reduceMotion} />
           <img className="scene-gate" src="/props/order-gate.svg" alt="" />
-          <img className="scene-eve" src="/characters/eve.svg" alt="" />
+          <MotionAsset name="eve" className="scene-eve" reduceMotion={reduceMotion} />
         </>
       )}
       {id === "wait" && (
         <>
-          <img className="scene-table" src="/props/clearing-table.svg" alt="" />
-          <img className="scene-bob" src="/characters/bob.svg" alt="" />
+          <MotionAsset name="clearing-table" className="scene-table" reduceMotion={reduceMotion} />
+          <MotionAsset name="bob" className="scene-bob" reduceMotion={reduceMotion} />
           <BlockClock reduceMotion={reduceMotion} />
         </>
       )}
       {id === "clear" && (
         <>
           <ClearingTable reduceMotion={reduceMotion} />
-          <img className="scene-alice" src="/characters/alice.svg" alt="" />
-          <img className="scene-bob" src="/characters/bob.svg" alt="" />
+          <MotionAsset name="alice" className="scene-alice" reduceMotion={reduceMotion} />
+          <MotionAsset name="bob" className="scene-bob" reduceMotion={reduceMotion} />
         </>
       )}
       {id === "liquidity" && (
         <>
-          <img className="scene-platform" src="/props/liquidity-platform.svg" alt="" />
-          <img className="scene-liam" src="/characters/liam.svg" alt="" />
+          <MotionAsset name="liquidity-platform" className="scene-platform" reduceMotion={reduceMotion} />
+          <MotionAsset name="liam" className="scene-liam" reduceMotion={reduceMotion} />
         </>
       )}
     </motion.div>
@@ -239,7 +255,7 @@ export function LandingPage({ onOpenDashboard }: LandingPageProps) {
           <h1 id="fl-hero-title"><span>Trade now.</span><em>Settle together.</em></h1>
           <p className="fl-hero__lede">Your output arrives now. The complete Ethereum block determines the final bill and refund.</p>
           <div className="fl-hero__actions">
-            <a href="#how">see the round <ArrowDownRight aria-hidden="true" /></a>
+            <a href="#how">see the set <ArrowDownRight aria-hidden="true" /></a>
             <button onClick={onOpenDashboard}>try the product <ArrowRight aria-hidden="true" /></button>
           </div>
         </motion.div>
@@ -251,10 +267,10 @@ export function LandingPage({ onOpenDashboard }: LandingPageProps) {
           transition={{ duration: 1.1, delay: 0.18, ease: [0.22, 1, 0.36, 1] }}
         >
           <div className="fl-hero__people" role="img" aria-label="Alice, Bob, Eve and Liam, the people in the Firstless story">
-            <img className="is-alice" src="/characters/alice.svg" alt="" />
-            <img className="is-bob" src="/characters/bob.svg" alt="" />
-            <img className="is-eve" src="/characters/eve.svg" alt="" />
-            <img className="is-liam" src="/characters/liam.svg" alt="" />
+            <MotionAsset name="alice" className="is-alice" reduceMotion={reduceMotion} />
+            <MotionAsset name="bob" className="is-bob" reduceMotion={reduceMotion} />
+            <MotionAsset name="eve" className="is-eve" reduceMotion={reduceMotion} />
+            <MotionAsset name="liam" className="is-liam" reduceMotion={reduceMotion} />
             <svg className="fl-hero__role-badge fl-hero__role-badge--eve" viewBox="0 0 112 36" aria-hidden="true">
               <rect x="1" y="1" width="110" height="34" rx="17" />
               <text x="56" y="23" textAnchor="middle">attacker</text>
@@ -280,7 +296,7 @@ export function LandingPage({ onOpenDashboard }: LandingPageProps) {
         <span>Each order pays the cost it adds to the completed set—not a uniform price and not a guessed attacker label.</span>
       </section>
 
-      <section id="how" className="fl-story" aria-label="How Firstless clears a round">
+      <section id="how" className="fl-story" aria-label="How Firstless clears an Ethereum block set">
         <div className="fl-story__intro">
           <span>How Firstless clears a trade</span>
           <span>Signed output through final refund</span>
@@ -315,22 +331,25 @@ export function LandingPage({ onOpenDashboard }: LandingPageProps) {
 
       <section id="refund" className="fl-refund" aria-labelledby="refund-title">
         <div className="fl-refund__intro">
-          <p>When the round closes</p>
+          <p>When the block set settles</p>
           <h2 id="refund-title">The maximum was a safety deposit. It was never the price.</h2>
         </div>
-        <div className="fl-refund__math" aria-label="Example refund calculation">
-          <div><span>held for Alice</span><strong>30.1204</strong></div>
-          <div><span>real bill</span><strong>− 25.1765</strong></div>
-          <div className="is-result"><span>goes home</span><strong>4.9439</strong></div>
+        <div className="fl-refund__math" aria-label="12.2468 fUSD maximum minus 10.1314 fUSD final bill equals a 2.1153 fUSD refund">
+          <p>Same Alice · same 10 fETH order</p>
+          <div><span>Maximum escrowed at signature</span><strong>12.2468 <small>fUSD</small></strong></div>
+          <b className="fl-refund__operator" aria-hidden="true">−</b>
+          <div><span>Final marginal bill after the block</span><strong>10.1314 <small>fUSD</small></strong></div>
+          <b className="fl-refund__operator" aria-hidden="true">=</b>
+          <div className="is-result"><span>Refund returned to Alice</span><strong>2.1153 <small>fUSD</small></strong></div>
         </div>
-        <p className="fl-refund__note">Alice could use her 25 output tokens the whole time. Only this final bill had to wait.</p>
+        <p className="fl-refund__note">Alice could use her 10 fETH output immediately. Only the final bill and refund waited for the completed Ethereum block.</p>
       </section>
 
       <section id="proof" className="fl-proof" aria-labelledby="proof-title">
-        <div className="fl-proof__number">0 <span>of 39</span></div>
+        <div className="fl-proof__number">0 <span>/ 39</span></div>
         <div className="fl-proof__copy">
-          <p>replayed attack cases</p>
-          <h2 id="proof-title">The attacker made money in the normal replay. Not in Firstless.</h2>
+          <p>profitable Firstless attacker portfolios</p>
+          <h2 id="proof-title">37 were profitable in the vanilla replay. Zero were profitable after setwise clearing.</h2>
         </div>
       </section>
 
@@ -345,8 +364,8 @@ export function LandingPage({ onOpenDashboard }: LandingPageProps) {
           <div className="fl-dashboard__screen">
             <aside><span className="is-on" /><span /><span /><span /></aside>
             <div className="fl-dashboard__trade">
-              <p>you receive</p><strong>25.0000</strong><small>fETH</small>
-              <div><span>maximum held</span><b>30.1204 fUSD</b></div>
+              <p>you receive</p><strong>10.0000</strong><small>fETH</small>
+              <div><span>maximum held</span><b>12.2468 fUSD</b></div>
               <span className="fl-dashboard__fake-button">sign exact output</span>
             </div>
             <div className="fl-dashboard__round"><span>current Ethereum block</span><b>collecting</b><i /><small>refund settles next block</small></div>
