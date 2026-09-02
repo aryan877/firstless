@@ -1,12 +1,16 @@
 <p align="center">
-  <img src="apps/web/public/brand/firstless-mark.svg" width="112" alt="Firstless clearing gate" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/readme/firstless-mark-on-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="apps/web/public/brand/firstless-mark.svg" />
+    <img src="apps/web/public/brand/firstless-mark.svg" width="112" alt="Firstless clearing gate" />
+  </picture>
 </p>
 
 <h1 align="center">firstless</h1>
 
 <p align="center">
-  <strong>Trade now. Settle together.</strong><br />
-  Exact output arrives immediately. The completed Ethereum-block set decides the final input bill and refund.
+  <strong>Receive the tokens now. Let the whole block decide the bill.</strong><br />
+  Firstless is a Uniswap v4 hook for exact-output orders. It holds a trader's signed maximum, delivers the requested output in the same transaction, then prices the order against the completed same-block set. Opposing flow nets first; the unused maximum comes back as a refund.
 </p>
 
 <p align="center">
@@ -16,20 +20,20 @@
   <img alt="149 passing tests" src="https://img.shields.io/badge/Foundry-149_passing-f4a261?style=for-the-badge" />
 </p>
 
-<p align="center">
-  <sub><strong>Alice</strong> wants an exact trade · <strong>Bob</strong> brings opposite flow · <strong>Eve</strong> wants ordering power · <strong>Liam</strong> stocks the pool</sub>
-</p>
+```text
+Live Sepolia order
 
-> [!WARNING]
-> Firstless is experimental, unaudited hackathon software. The public Sepolia deployment below uses valueless test tokens and is not production-ready.
+Alice signs a 12.246752 fUSD maximum  →  receives exactly 10 fETH immediately
+The block closes                       →  10.131404 fUSD final bill + 2.115348 fUSD refund
+```
 
 <p align="center">
   <img src="assets/readme/firstless-flow.svg" width="100%" alt="Animated Firstless clearing lifecycle" />
 </p>
 
-## The idea in 20 seconds
+## Why it exists
 
-Sequential AMMs let transaction position permanently influence the price each trader receives. Firstless separates **delivery order** from **final billing**:
+A normal AMM prices swaps one after another, so transaction position can permanently change what everyone pays. Firstless separates **when output is delivered** from **when the final input bill is calculated**:
 
 1. A trader signs an exact-output order and a maximum input.
 2. The hook collects the conservative maximum and sends the requested output immediately.
@@ -258,6 +262,9 @@ VITE_DEPLOYMENT_PATH=/deployments/sepolia.json npm run dev
 Unichain Flashblocks are a possible future latency deployment, not a second demo path. The current mechanism and evidence use checked Ethereum `block.number` semantics.
 
 ## Security boundaries
+
+> [!WARNING]
+> Firstless is experimental, unaudited hackathon software. Its public Sepolia deployment uses valueless test tokens and is not production-ready.
 
 | Supported now                                  | Explicitly outside the claim                                     |
 | ---------------------------------------------- | ---------------------------------------------------------------- |
