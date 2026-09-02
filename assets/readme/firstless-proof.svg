@@ -1,51 +1,75 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 650" role="img" aria-labelledby="title desc">
-  <title id="title">Firstless verification board</title>
-  <desc id="desc">Verification metrics include zero profitable Firstless attack portfolios in 39 replays, 149 passing runnable Foundry tests, full production line and function coverage, and 40,960 invariant calls.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 760" role="img" aria-labelledby="title desc">
+  <title id="title">Firstless verification results</title>
+  <desc id="desc">Verification results include zero profitable Firstless attacker portfolios in 39 historical replays, 149 passing runnable Foundry checks, full production line and function coverage, and 40,960 invariant calls. A local order holds a maximum equal to its final bill plus its refund.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f8f5ee"/><stop offset="1" stop-color="#e5e8e0"/></linearGradient>
-    <style>.sans{font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}.mono{font-family:"SFMono-Regular",Consolas,monospace}.card{fill:#fffefa;stroke:#d0d3ca;stroke-width:2}.num{fill:#171814;font-size:63px;font-weight:780;letter-spacing:-3px}.label{fill:#676b64;font-size:19px}.eyebrow{font-size:15px;letter-spacing:.12em}.rust{fill:#b65936}.blue{fill:#3159aa}</style>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f8f5ee"/>
+      <stop offset="1" stop-color="#e5e8e0"/>
+    </linearGradient>
+    <style>
+      .sans{font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
+      .mono{font-family:"SFMono-Regular",Consolas,monospace}
+      .card{fill:#fffefa;stroke:#d0d3ca;stroke-width:2}
+      .number{fill:#171814;font-size:62px;font-weight:780;letter-spacing:-2.5px}
+      .copy{fill:#676b64;font-size:18px}
+      .section{font-size:15px;letter-spacing:.03em}
+    </style>
   </defs>
-  <rect width="1400" height="650" rx="42" fill="url(#bg)"/>
-  <text x="70" y="79" class="mono eyebrow" fill="#6c716a">REPRODUCIBLE PROOF · NOT A PROMISE OF UNIVERSAL MEV PROTECTION</text>
-  <text x="70" y="128" class="sans" fill="#171814" font-size="42" font-weight="760" letter-spacing="-1.5">Measured, attacked, and bounded.</text>
 
-  <g transform="translate(70 178)">
-    <rect width="290" height="212" rx="28" class="card"/>
-    <text x="28" y="47" class="mono eyebrow rust">HISTORICAL REPLAY</text>
-    <text x="28" y="126" class="sans num">0 / 39</text>
-    <text x="28" y="164" class="sans label">profitable Firstless</text>
-    <text x="28" y="190" class="sans label">attacker portfolios</text>
-  </g>
-  <g transform="translate(394 178)">
-    <rect width="290" height="212" rx="28" class="card"/>
-    <text x="28" y="47" class="mono eyebrow blue">FOUNDRY</text>
-    <text x="28" y="126" class="sans num">149</text>
-    <text x="28" y="164" class="sans label">runnable checks passing</text>
-    <text x="28" y="190" class="sans label">0 failures · 1 RPC skip</text>
-  </g>
-  <g transform="translate(718 178)">
-    <rect width="290" height="212" rx="28" class="card"/>
-    <text x="28" y="47" class="mono eyebrow rust">PRODUCTION CODE</text>
-    <text x="28" y="126" class="sans num">100%</text>
-    <text x="28" y="164" class="sans label">line + function coverage</text>
-    <text x="28" y="190" class="sans label">93.98% statements</text>
-  </g>
-  <g transform="translate(1042 178)">
-    <rect width="290" height="212" rx="28" class="card"/>
-    <text x="28" y="47" class="mono eyebrow blue">STATEFUL INVARIANTS</text>
-    <text x="28" y="126" class="sans num">40,960</text>
-    <text x="28" y="164" class="sans label">mixed lifecycle calls</text>
-    <text x="28" y="190" class="sans label">zero handler reverts</text>
+  <rect width="1600" height="760" rx="42" fill="url(#background)"/>
+  <text x="70" y="75" class="mono section" fill="#6c716a">Reproducible evidence · bounded claim</text>
+  <text x="70" y="126" class="sans" fill="#171814" font-size="43" font-weight="760" letter-spacing="-1.5">Measured, attacked, and reproducible.</text>
+  <text x="70" y="162" class="sans" fill="#676b64" font-size="20">These results support the tested scope. They are not a promise of universal MEV protection.</text>
+
+  <g transform="translate(70 210)">
+    <rect width="335" height="210" rx="28" class="card"/>
+    <text x="30" y="46" class="mono section" fill="#b65936">Historical replay</text>
+    <text x="30" y="124" class="sans number">0 / 39</text>
+    <text x="30" y="164" class="sans copy">profitable Firstless</text>
+    <text x="30" y="190" class="sans copy">attacker portfolios</text>
   </g>
 
-  <g transform="translate(70 438)">
-    <rect width="1262" height="142" rx="30" fill="#171814"/>
-    <text x="32" y="42" class="mono eyebrow" fill="#aeb6aa">ONE REAL LOCAL ORDER · EXACT OUTPUT 10</text>
-    <text x="32" y="94" class="sans" fill="#f8f5ee" font-size="29" font-weight="700">12.246752 max held</text>
-    <text x="371" y="94" class="sans" fill="#aeb6aa" font-size="29">→</text>
-    <text x="431" y="94" class="sans" fill="#f8f5ee" font-size="29" font-weight="700">10.131404 final bill</text>
-    <text x="816" y="94" class="sans" fill="#aeb6aa" font-size="29">+</text>
-    <text x="866" y="94" class="sans" fill="#9cb7ef" font-size="29" font-weight="700">2.115348 refund</text>
-    <text x="32" y="123" class="mono" fill="#aeb6aa" font-size="16">deployed PoolManager · signed order · next-block settlement · underlying redemption</text>
+  <g transform="translate(445 210)">
+    <rect width="335" height="210" rx="28" class="card"/>
+    <text x="30" y="46" class="mono section" fill="#3159aa">Foundry</text>
+    <text x="30" y="124" class="sans number">149</text>
+    <text x="30" y="164" class="sans copy">runnable checks passing</text>
+    <text x="30" y="190" class="sans copy">0 failures · 1 RPC skip</text>
+  </g>
+
+  <g transform="translate(820 210)">
+    <rect width="335" height="210" rx="28" class="card"/>
+    <text x="30" y="46" class="mono section" fill="#b65936">Production code</text>
+    <text x="30" y="124" class="sans number">100%</text>
+    <text x="30" y="164" class="sans copy">line + function coverage</text>
+    <text x="30" y="190" class="sans copy">93.98% statements</text>
+  </g>
+
+  <g transform="translate(1195 210)">
+    <rect width="335" height="210" rx="28" class="card"/>
+    <text x="30" y="46" class="mono section" fill="#3159aa">Stateful invariants</text>
+    <text x="30" y="124" class="sans number">40,960</text>
+    <text x="30" y="164" class="sans copy">mixed lifecycle calls</text>
+    <text x="30" y="190" class="sans copy">zero handler reverts</text>
+  </g>
+
+  <g transform="translate(70 490)">
+    <rect width="1460" height="190" rx="30" fill="#171814"/>
+    <text x="38" y="42" class="mono section" fill="#aeb6aa">Verified local order · exact output 10 fETH</text>
+
+    <text x="38" y="84" class="mono" fill="#aeb6aa" font-size="16">Maximum held</text>
+    <text x="38" y="132" class="sans" fill="#f8f5ee" font-size="32" font-weight="720">12.246752 fUSD</text>
+
+    <text x="430" y="128" text-anchor="middle" class="sans" fill="#aeb6aa" font-size="38" font-weight="500">=</text>
+
+    <text x="500" y="84" class="mono" fill="#aeb6aa" font-size="16">Final bill</text>
+    <text x="500" y="132" class="sans" fill="#f8f5ee" font-size="32" font-weight="720">10.131404 fUSD</text>
+
+    <text x="890" y="128" text-anchor="middle" class="sans" fill="#aeb6aa" font-size="38" font-weight="500">+</text>
+
+    <text x="960" y="84" class="mono" fill="#9cb7ef" font-size="16">Refund</text>
+    <text x="960" y="132" class="sans" fill="#9cb7ef" font-size="32" font-weight="720">2.115348 fUSD</text>
+
+    <text x="38" y="166" class="mono" fill="#aeb6aa" font-size="15">signed order · next-block settlement · underlying redemption</text>
   </g>
 </svg>

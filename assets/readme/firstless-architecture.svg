@@ -1,105 +1,120 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
-  <title id="title">Firstless system architecture</title>
-  <desc id="desc">A trader signs an exact-output order for FirstlessRouter. The router authenticates the order and calls Uniswap v4 PoolManager, which invokes FirstlessHook. Output returns immediately. After the Ethereum block advances, Firstless computes the marginal bill and exposes the unused escrow through RefundRedeemer.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 920" role="img" aria-labelledby="title desc">
+  <title id="title">Firstless execution and settlement architecture</title>
+  <desc id="desc">During the signed transaction, the trader calls FirstlessRouter, which authenticates the order and unlocks PoolManager. PoolManager calls FirstlessHook, and the trader receives exact output before the transaction ends. After the Ethereum block advances, FirstlessHook finalizes the completed set, RefundRedeemer converts the backed claim to ERC-20, and the trader receives the unused maximum.</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
       <stop stop-color="#171814"/>
-      <stop offset="1" stop-color="#2b2e29"/>
+      <stop offset="1" stop-color="#252822"/>
     </linearGradient>
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
-      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity=".28"/>
+      <feDropShadow dx="0" dy="10" stdDeviation="13" flood-color="#000" flood-opacity=".24"/>
     </filter>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-      <path d="M0 0 10 5 0 10Z" fill="#aeb6aa"/>
-    </marker>
-    <marker id="blue-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-      <path d="M0 0 10 5 0 10Z" fill="#7295e2"/>
-    </marker>
     <style>
       .sans{font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
       .mono{font-family:"SFMono-Regular",Consolas,monospace}
-      .box{fill:#f8f5ee;stroke:#c8cbc2;stroke-width:2}
-      .title{fill:#171814;font-size:27px;font-weight:740}
-      .copy{fill:#686c65;font-size:18px}
-      .eyebrow{font-size:15px;letter-spacing:.12em}
-      .line{fill:none;stroke:#aeb6aa;stroke-width:4;marker-end:url(#arrow)}
-      .blue{fill:none;stroke:#7295e2;stroke-width:5;marker-end:url(#blue-arrow)}
-      .dash{stroke-dasharray:10 12}
-      .connector-label{font-size:14px;letter-spacing:.04em}
+      .card{fill:#f8f5ee;stroke:#c8cbc2;stroke-width:2}
+      .hook{fill:#e3e8df;stroke:#8b9789;stroke-width:2}
+      .title{fill:#171814;font-size:25px;font-weight:740}
+      .copy{fill:#686c65;font-size:17px}
+      .step{font-size:14px}
+      .wire{stroke:#aeb6aa;stroke-width:5;stroke-linecap:round}
     </style>
   </defs>
 
-  <rect width="1600" height="900" rx="42" fill="url(#bg)"/>
-  <text x="70" y="82" class="sans" fill="#f8f5ee" font-size="43" font-weight="750" letter-spacing="-1.7">The contracts are the product.</text>
-  <text x="70" y="123" class="sans" fill="#bfc5ba" font-size="21">The web client signs the same order exercised by the Foundry integration suite.</text>
+  <rect width="1600" height="920" rx="42" fill="url(#background)"/>
+  <text x="70" y="76" class="sans" fill="#f8f5ee" font-size="42" font-weight="750" letter-spacing="-1.5">One system. Two moments.</text>
+  <text x="70" y="116" class="sans" fill="#bfc5ba" font-size="21">Output finishes inside the signed transaction. Billing and refund wait for the block boundary.</text>
 
-  <g transform="translate(70 195)" filter="url(#shadow)">
-    <rect width="360" height="190" rx="30" class="box"/>
-    <circle cx="46" cy="48" r="17" fill="#3159aa"/>
-    <text x="82" y="57" class="sans title">Trader</text>
-    <text x="34" y="105" class="mono copy">EIP-712 signature</text>
-    <text x="34" y="137" class="mono copy">exact output + maximum</text>
-    <text x="34" y="167" class="mono copy">recipient + call plan</text>
+  <rect x="50" y="158" width="1500" height="390" rx="34" fill="#202721" stroke="#3b463d" stroke-width="2"/>
+  <text x="82" y="204" class="mono" fill="#9cb7ef" font-size="17">During the signed transaction</text>
+  <text x="82" y="235" class="sans" fill="#bfc5ba" font-size="18">Authentication, custody accounting, and exact output are atomic.</text>
+
+  <g transform="translate(70 268)" filter="url(#shadow)">
+    <rect width="320" height="170" rx="26" class="card"/>
+    <text x="30" y="42" class="mono step" fill="#3159aa">Trader</text>
+    <text x="30" y="82" class="sans title">Signs exact output</text>
+    <text x="30" y="117" class="sans copy">10 fETH requested</text>
+    <text x="30" y="145" class="sans copy">maximum input authorized</text>
   </g>
 
-  <g transform="translate(620 195)" filter="url(#shadow)">
-    <rect width="360" height="190" rx="30" class="box"/>
-    <text x="34" y="49" class="mono eyebrow" fill="#b65936">AUTH BOUNDARY</text>
-    <text x="34" y="91" class="sans title">FirstlessRouter</text>
-    <text x="34" y="137" class="sans copy">nonce · deadline · payer</text>
-    <text x="34" y="167" class="sans copy">atomic downstream call</text>
+  <path d="M402 353H422" class="wire"/>
+  <path d="M442 353 414 337V369Z" fill="#aeb6aa"/>
+
+  <g transform="translate(450 268)" filter="url(#shadow)">
+    <rect width="320" height="170" rx="26" class="card"/>
+    <text x="30" y="42" class="mono step" fill="#b65936">FirstlessRouter</text>
+    <text x="30" y="82" class="sans title">Authenticates</text>
+    <text x="30" y="117" class="sans copy">nonce · deadline · payer</text>
+    <text x="30" y="145" class="sans copy">recipient · downstream call</text>
   </g>
 
-  <g transform="translate(1170 195)" filter="url(#shadow)">
-    <rect width="360" height="190" rx="30" class="box"/>
-    <text x="34" y="49" class="mono eyebrow" fill="#3159aa">UNISWAP V4</text>
-    <text x="34" y="91" class="sans title">PoolManager</text>
-    <text x="34" y="137" class="sans copy">unlock · deltas · claims</text>
-    <text x="34" y="167" class="sans copy">single custody boundary</text>
+  <path d="M782 353H802" class="wire"/>
+  <path d="M822 353 794 337V369Z" fill="#aeb6aa"/>
+
+  <g transform="translate(830 268)" filter="url(#shadow)">
+    <rect width="320" height="170" rx="26" class="card"/>
+    <text x="30" y="42" class="mono step" fill="#3159aa">Uniswap v4 PoolManager</text>
+    <text x="30" y="82" class="sans title">Owns custody</text>
+    <text x="30" y="117" class="sans copy">unlock · deltas · claims</text>
+    <text x="30" y="145" class="sans copy">single accounting boundary</text>
   </g>
 
-  <path d="M430 290H600" class="line"/>
-  <path d="M980 290H1150" class="line"/>
-  <text x="515" y="258" text-anchor="middle" class="mono connector-label" fill="#bfc5ba">SIGNED ORDER</text>
-  <text x="1065" y="258" text-anchor="middle" class="mono connector-label" fill="#bfc5ba">UNLOCK</text>
+  <path d="M1162 353H1182" class="wire"/>
+  <path d="M1202 353 1174 337V369Z" fill="#aeb6aa"/>
 
-  <g transform="translate(580 470)" filter="url(#shadow)">
-    <rect width="440" height="170" rx="32" fill="#e3e8df" stroke="#8b9789" stroke-width="2"/>
-    <path fill="#171814" fill-rule="evenodd" d="M56 31h48a12 12 0 0 1 12 12v21h20a8 8 0 0 1 0 16h-20v21a12 12 0 0 1-12 12H56a12 12 0 0 1-12-12V80H24a8 8 0 0 1 0-16h20V43a12 12 0 0 1 12-12Zm24 21v40h10V52H80Z"/>
-    <text x="174" y="66" class="sans title">FirstlessHook</text>
-    <text x="174" y="99" class="sans copy">Ethereum block set</text>
-    <text x="174" y="129" class="sans copy">netting + marginal accounting</text>
+  <g transform="translate(1210 268)" filter="url(#shadow)">
+    <rect width="320" height="170" rx="26" class="hook"/>
+    <text x="30" y="42" class="mono step" fill="#3159aa">FirstlessHook</text>
+    <text x="30" y="82" class="sans title">Executes the order</text>
+    <text x="30" y="117" class="sans copy">sends 10 fETH now</text>
+    <text x="30" y="145" class="sans copy">holds maximum · records set</text>
   </g>
 
-  <path d="M1350 385C1350 459 1179 516 1040 540" class="line"/>
-  <text x="1260" y="444" text-anchor="middle" class="mono connector-label" fill="#bfc5ba">SWAP CALLBACK</text>
+  <rect x="82" y="466" width="1436" height="54" rx="27" fill="#3159aa"/>
+  <text x="800" y="501" text-anchor="middle" class="sans" fill="#fffefa" font-size="21" font-weight="700">Transaction ends: Alice already has usable output.</text>
 
-  <path d="M560 546C430 546 250 499 250 405" class="blue"/>
-  <text x="391" y="520" text-anchor="middle" class="mono connector-label" fill="#9cb7ef">EXACT OUTPUT NOW</text>
+  <rect x="50" y="570" width="1500" height="310" rx="34" fill="#1d211c" stroke="#3b403a" stroke-width="2"/>
+  <text x="82" y="616" class="mono" fill="#e2a58d" font-size="17">After block.number advances</text>
+  <text x="82" y="647" class="sans" fill="#bfc5ba" font-size="18">The completed set fixes the bill; the unused maximum stays backed until redemption.</text>
 
-  <g transform="translate(70 715)" filter="url(#shadow)">
-    <rect width="360" height="120" rx="26" fill="#353a34" stroke="#596159"/>
-    <text x="30" y="40" class="mono eyebrow" fill="#bfc5ba">ETHEREUM CLOCK</text>
-    <text x="30" y="80" class="sans" fill="#f8f5ee" font-size="25" font-weight="720">block.number advances</text>
+  <g transform="translate(70 680)" filter="url(#shadow)">
+    <rect width="320" height="170" rx="26" fill="#353a34" stroke="#596159" stroke-width="2"/>
+    <text x="30" y="42" class="mono step" fill="#bfc5ba">Ethereum clock</text>
+    <text x="30" y="82" class="sans" fill="#f8f5ee" font-size="25" font-weight="740">Set closes</text>
+    <text x="30" y="117" class="sans" fill="#bfc5ba" font-size="17">all opted-in orders known</text>
+    <text x="30" y="145" class="sans" fill="#bfc5ba" font-size="17">opening reserves fixed</text>
   </g>
 
-  <g transform="translate(580 695)" filter="url(#shadow)">
-    <rect width="440" height="140" rx="28" class="box"/>
-    <text x="32" y="43" class="mono eyebrow" fill="#b65936">DEFERRED BILLING</text>
-    <text x="32" y="84" class="sans title">full set − set without me</text>
-    <text x="32" y="117" class="sans copy">unused maximum stays fully backed</text>
+  <path d="M402 765H422" class="wire"/>
+  <path d="M442 765 414 749V781Z" fill="#aeb6aa"/>
+
+  <g transform="translate(450 680)" filter="url(#shadow)">
+    <rect width="320" height="170" rx="26" class="hook"/>
+    <text x="30" y="42" class="mono step" fill="#b65936">FirstlessHook</text>
+    <text x="30" y="82" class="sans title">Computes each bill</text>
+    <text x="30" y="117" class="sans copy">full set − set without order</text>
+    <text x="30" y="145" class="sans copy">refund liability stays backed</text>
   </g>
 
-  <g transform="translate(1170 695)" filter="url(#shadow)">
-    <rect width="360" height="140" rx="28" class="box"/>
-    <text x="32" y="43" class="mono eyebrow" fill="#3159aa">REFUND PATH</text>
-    <text x="32" y="84" class="sans title">RefundRedeemer</text>
-    <text x="32" y="117" class="sans copy">ERC-6909 claim → ERC-20</text>
+  <path d="M782 765H802" class="wire"/>
+  <path d="M822 765 794 749V781Z" fill="#aeb6aa"/>
+
+  <g transform="translate(830 680)" filter="url(#shadow)">
+    <rect width="320" height="170" rx="26" class="card"/>
+    <text x="30" y="42" class="mono step" fill="#3159aa">RefundRedeemer</text>
+    <text x="30" y="82" class="sans title">Redeems the claim</text>
+    <text x="30" y="117" class="sans copy">ERC-6909 claim</text>
+    <text x="30" y="145" class="sans copy">converted to ERC-20</text>
   </g>
 
-  <path d="M430 765H560" class="line dash"/>
-  <path d="M1020 765H1150" class="line"/>
-  <text x="495" y="735" text-anchor="middle" class="mono connector-label" fill="#bfc5ba">NEXT BLOCK</text>
-  <text x="1085" y="735" text-anchor="middle" class="mono connector-label" fill="#bfc5ba">REDEEM</text>
-  <path d="M800 640V675" class="line dash"/>
+  <path d="M1162 765H1182" class="wire"/>
+  <path d="M1202 765 1174 749V781Z" fill="#aeb6aa"/>
+
+  <g transform="translate(1210 680)" filter="url(#shadow)">
+    <rect width="320" height="170" rx="26" class="card"/>
+    <text x="30" y="42" class="mono step" fill="#3159aa">Trader</text>
+    <text x="30" y="82" class="sans title">Receives the rest</text>
+    <text x="30" y="117" class="sans copy">2.115348 fUSD refund</text>
+    <text x="30" y="145" class="sans copy">only final bill stays charged</text>
+  </g>
 </svg>

@@ -1,85 +1,101 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc">
-  <title id="title">Firstless clearing lifecycle</title>
-  <desc id="desc">Two signed exact-output orders enter one Ethereum-block set, receive output immediately, settle together, and return unused input as refunds.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">What happens to one Firstless order</title>
+  <desc id="desc">Alice signs for exactly 10 fETH with a maximum input. The output arrives immediately and the maximum is held. Same-block opposing flow nets before the residual reaches the curve. In the next block Alice pays her marginal bill and receives the unused maximum as a refund.</desc>
   <defs>
     <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f8f5ee"/>
-      <stop offset="1" stop-color="#e8e9e2"/>
+      <stop stop-color="#f8f5ee"/>
+      <stop offset="1" stop-color="#e7e9e2"/>
     </linearGradient>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
-      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#171814" flood-opacity=".12"/>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#171814" flood-opacity=".10"/>
     </filter>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-      <path d="M0 0 10 5 0 10Z" fill="#7c8078"/>
-    </marker>
     <style>
-      .sans{font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}.mono{font-family:"SFMono-Regular",Consolas,monospace}.ink{fill:#171814}.muted{fill:#696d66}.tiny{font-size:18px;letter-spacing:.12em;text-transform:uppercase}.label{font-size:23px;font-weight:650}.value{font-size:31px;font-weight:720}.lane{fill:none;stroke:#b5b8b0;stroke-width:5;stroke-linecap:round;stroke-dasharray:10 14}.card{fill:#fffefa;stroke:#d4d6ce;stroke-width:2}.pulse{transform-origin:center;animation:pulse 2s ease-in-out infinite}.spin{transform-box:fill-box;transform-origin:center;animation:spin 5.4s cubic-bezier(.65,0,.35,1) infinite}.bill{animation:bill 5.4s ease-in-out infinite}.refund{animation:refund 5.4s ease-in-out infinite}.order-a{animation:orderA 5.4s ease-in-out infinite}.order-b{animation:orderB 5.4s ease-in-out infinite}@keyframes pulse{50%{opacity:.45;transform:scale(1.08)}}@keyframes spin{0%,36%{transform:rotate(0)}55%,100%{transform:rotate(360deg)}}@keyframes orderA{0%,8%{transform:translateX(0);opacity:1}34%,68%{transform:translateX(352px);opacity:1}82%,100%{transform:translateX(352px);opacity:.15}}@keyframes orderB{0%,8%{transform:translateX(0);opacity:1}34%,68%{transform:translateX(-352px);opacity:1}82%,100%{transform:translateX(-352px);opacity:.15}}@keyframes bill{0%,48%{opacity:0;transform:translateY(14px)}62%,88%{opacity:1;transform:translateY(0)}100%{opacity:0}}@keyframes refund{0%,62%{opacity:0;transform:translateY(-8px)}74%,92%{opacity:1;transform:translateY(0)}100%{opacity:0}}@media(prefers-reduced-motion:reduce){.pulse,.spin,.bill,.refund,.order-a,.order-b{animation:none}.bill,.refund{opacity:1}}
+      .sans{font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif}
+      .mono{font-family:"SFMono-Regular",Consolas,monospace}
+      .ink{fill:#171814}
+      .muted{fill:#696d66}
+      .card{fill:#fffefa;stroke:#d0d3ca;stroke-width:2}
+      .step{font-size:16px}
+      .card-title{font-size:28px;font-weight:740}
+      .body{font-size:18px}
+      .wire{stroke:#8d9189;stroke-width:5;stroke-linecap:round}
     </style>
   </defs>
 
-  <rect width="1400" height="760" rx="42" fill="url(#paper)"/>
-  <g transform="translate(68 52)">
-    <path fill="#171814" fill-rule="evenodd" d="M18 0h28a9 9 0 0 1 9 9v11h11a6 6 0 0 1 0 12H55v11a9 9 0 0 1-9 9H18a9 9 0 0 1-9-9V32H-2a6 6 0 0 1 0-12H9V9a9 9 0 0 1 9-9Zm11 13v26h8V13h-8Z"/>
-    <text x="88" y="38" class="sans ink" font-size="34" font-weight="740" letter-spacing="-1.8">firstless</text>
-  </g>
-  <text x="1332" y="84" text-anchor="end" class="mono muted tiny">trade now · settle together</text>
+  <rect width="1600" height="900" rx="42" fill="url(#paper)"/>
+  <text x="70" y="80" class="mono" fill="#3159aa" font-size="16">One order, end to end</text>
+  <text x="70" y="136" class="sans ink" font-size="48" font-weight="760" letter-spacing="-1.8">Alice gets her output now. The block decides her bill.</text>
+  <text x="72" y="180" class="sans muted" font-size="22">The maximum is temporary collateral. Only Alice’s marginal contribution remains charged.</text>
 
-  <text x="70" y="164" class="sans ink" font-size="48" font-weight="750" letter-spacing="-2">One block. No permanent first-mover price.</text>
-  <text x="72" y="207" class="sans muted" font-size="23">Exact output is usable immediately. Only the final input bill waits for the completed set.</text>
-
-  <path class="lane" d="M180 391H585" marker-end="url(#arrow)"/>
-  <path class="lane" d="M1220 391H815" marker-end="url(#arrow)"/>
-
-  <g transform="translate(112 0)">
-    <g class="order-a">
-      <rect x="0" y="320" width="230" height="142" rx="28" fill="#edf1fb" stroke="#3159aa" stroke-width="3" filter="url(#shadow)"/>
-      <circle cx="38" cy="356" r="13" fill="#3159aa"/>
-      <text x="66" y="365" class="sans ink label">Alice</text>
-      <text x="28" y="405" class="mono muted" font-size="18">receive exactly</text>
-      <text x="28" y="441" class="sans value" fill="#3159aa">10 fETH</text>
-    </g>
+  <g transform="translate(70 250)" filter="url(#shadow)">
+    <rect width="320" height="370" rx="30" class="card"/>
+    <text x="32" y="45" class="mono step" fill="#3159aa">1 · Alice signs</text>
+    <text x="32" y="90" class="sans ink card-title">Exact output</text>
+    <rect x="32" y="116" width="256" height="76" rx="20" fill="#edf1fb" stroke="#3159aa" stroke-width="2"/>
+    <text x="52" y="144" class="mono muted" font-size="15">receive exactly</text>
+    <text x="52" y="178" class="sans" fill="#3159aa" font-size="29" font-weight="760">10 fETH</text>
+    <text x="32" y="232" class="mono muted" font-size="15">maximum input</text>
+    <text x="32" y="268" class="sans ink" font-size="24" font-weight="720">12.246752 fUSD</text>
+    <text x="32" y="305" class="sans muted body">payer · recipient · deadline</text>
   </g>
 
-  <g transform="translate(1058 0)">
-    <g class="order-b">
-      <rect x="0" y="320" width="230" height="142" rx="28" fill="#fbefea" stroke="#b65936" stroke-width="3" filter="url(#shadow)"/>
-      <circle cx="38" cy="356" r="13" fill="#b65936"/>
-      <text x="66" y="365" class="sans ink label">Bob</text>
-      <text x="28" y="405" class="mono muted" font-size="18">opposite flow</text>
-      <text x="28" y="441" class="sans value" fill="#b65936">joins set</text>
-    </g>
+  <path d="M402 435H422" class="wire"/>
+  <path d="M442 435 414 419V451Z" fill="#8d9189"/>
+
+  <g transform="translate(450 250)" filter="url(#shadow)">
+    <rect width="320" height="370" rx="30" class="card"/>
+    <text x="32" y="45" class="mono step" fill="#3159aa">2 · Transaction executes</text>
+    <text x="32" y="90" class="sans ink card-title">Output first</text>
+    <circle cx="70" cy="154" r="38" fill="#3159aa"/>
+    <text x="70" y="164" text-anchor="middle" class="sans" fill="#fffefa" font-size="26" font-weight="760">10</text>
+    <text x="126" y="148" class="sans ink" font-size="25" font-weight="740">fETH delivered</text>
+    <text x="126" y="178" class="sans muted body">before the call ends</text>
+    <line x1="32" y1="215" x2="288" y2="215" stroke="#d0d3ca" stroke-width="2"/>
+    <text x="32" y="253" class="mono muted" font-size="15">maximum held</text>
+    <text x="32" y="288" class="sans ink" font-size="23" font-weight="720">12.246752 fUSD</text>
+    <text x="32" y="313" class="sans muted" font-size="16">not the final price</text>
   </g>
 
-  <g transform="translate(700 391)" filter="url(#shadow)">
-    <circle r="132" fill="#fffefa" stroke="#171814" stroke-width="3"/>
-    <circle r="98" fill="#e3e8df"/>
-    <g class="spin">
-      <path d="M-52 0a52 52 0 0 1 91-35" fill="none" stroke="#171814" stroke-width="9" stroke-linecap="round"/>
-      <path d="m35-57 14 29-32-3Z" fill="#171814"/>
-      <path d="M52 0a52 52 0 0 1-91 35" fill="none" stroke="#171814" stroke-width="9" stroke-linecap="round"/>
-      <path d="m-35 57-14-29 32 3Z" fill="#171814"/>
-    </g>
-    <text y="8" text-anchor="middle" class="mono ink" font-size="17" font-weight="700">BLOCK N</text>
+  <path d="M782 435H802" class="wire"/>
+  <path d="M822 435 794 419V451Z" fill="#8d9189"/>
+
+  <g transform="translate(830 250)" filter="url(#shadow)">
+    <rect width="320" height="370" rx="30" fill="#e3e8df" stroke="#8b9789" stroke-width="2"/>
+    <text x="32" y="45" class="mono step" fill="#3159aa">3 · Same Ethereum block</text>
+    <text x="32" y="90" class="sans ink card-title">One complete set</text>
+    <rect x="32" y="116" width="256" height="44" rx="14" fill="#fbefea"/>
+    <circle cx="52" cy="138" r="8" fill="#b65936"/>
+    <text x="70" y="145" class="sans ink" font-size="17" font-weight="650">Eve buys 100</text>
+    <rect x="32" y="170" width="256" height="44" rx="14" fill="#edf1fb"/>
+    <circle cx="52" cy="192" r="8" fill="#3159aa"/>
+    <text x="70" y="199" class="sans ink" font-size="17" font-weight="650">Alice buys 10</text>
+    <rect x="32" y="224" width="256" height="44" rx="14" fill="#fbefea"/>
+    <circle cx="52" cy="246" r="8" fill="#b65936"/>
+    <text x="70" y="253" class="sans ink" font-size="17" font-weight="650">Eve sells 100</text>
+    <text x="32" y="298" class="sans ink" font-size="18" font-weight="700">Opposing flow nets first.</text>
+    <text x="32" y="322" class="sans muted" font-size="16">Only Alice’s residual</text>
+    <text x="32" y="342" class="sans muted" font-size="16">moves the curve.</text>
   </g>
 
-  <g class="bill">
-    <rect x="535" y="555" width="330" height="82" rx="41" class="card"/>
-    <text x="700" y="588" text-anchor="middle" class="mono muted" font-size="16">FINAL BILL = FULL SET − WITHOUT ME</text>
-    <text x="700" y="619" text-anchor="middle" class="sans ink label">marginal contribution</text>
-  </g>
-  <path d="M700 523v30" stroke="#7c8078" stroke-width="4" marker-end="url(#arrow)"/>
+  <path d="M1162 435H1182" class="wire"/>
+  <path d="M1202 435 1174 419V451Z" fill="#8d9189"/>
 
-  <g class="refund">
-    <rect x="101" y="579" width="342" height="92" rx="24" fill="#fffefa" stroke="#3159aa" stroke-width="2"/>
-    <text x="128" y="614" class="mono muted" font-size="16">UNUSED MAXIMUM</text>
-    <text x="128" y="650" class="sans ink label">backed refund → Alice</text>
-    <circle class="pulse" cx="410" cy="624" r="15" fill="#3159aa"/>
+  <g transform="translate(1210 250)" filter="url(#shadow)">
+    <rect width="320" height="370" rx="30" class="card"/>
+    <text x="32" y="45" class="mono step" fill="#b65936">4 · Next block</text>
+    <text x="32" y="90" class="sans ink card-title">Settle and refund</text>
+    <text x="32" y="132" class="mono muted" font-size="15">Alice’s final bill</text>
+    <text x="32" y="169" class="sans ink" font-size="25" font-weight="740">10.131404 fUSD</text>
+    <line x1="32" y1="198" x2="288" y2="198" stroke="#d0d3ca" stroke-width="2"/>
+    <text x="32" y="235" class="mono" fill="#3159aa" font-size="15">Alice’s refund</text>
+    <text x="32" y="272" class="sans" fill="#3159aa" font-size="25" font-weight="740">2.115348 fUSD</text>
+    <text x="32" y="311" class="sans muted" font-size="16">maximum − bill = refund</text>
   </g>
 
-  <g transform="translate(958 569)">
-    <rect width="330" height="112" rx="28" fill="#171814"/>
-    <text x="28" y="38" class="mono" fill="#bfc8bc" font-size="16">OUTPUT STATUS</text>
-    <text x="28" y="76" class="sans" fill="#fffefa" font-size="27" font-weight="720">already delivered</text>
-    <text x="28" y="99" class="sans" fill="#bfc8bc" font-size="16">composable in the same transaction</text>
+  <g transform="translate(70 650)">
+    <rect width="1460" height="170" rx="30" fill="#171814"/>
+    <text x="42" y="51" class="mono" fill="#9cb7ef" font-size="16">The key idea</text>
+    <text x="42" y="96" class="sans" fill="#f8f5ee" font-size="32" font-weight="740">Fast output does not require permanent transaction-order pricing.</text>
+    <text x="42" y="135" class="sans" fill="#bfc5ba" font-size="20">Deliver now · net the completed block set · charge the marginal bill · return the rest</text>
   </g>
 </svg>
