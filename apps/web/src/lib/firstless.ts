@@ -219,7 +219,18 @@ export async function loadRuntime(): Promise<Runtime> {
     nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     rpcUrls: { default: { http: [deployment.rpcUrl] } },
   });
-  const publicClient = createPublicClient({ chain, transport: http(deployment.rpcUrl) });
+  // Public RPCs often throttle a burst of independent browser requests. Batch
+  // reads into one JSON-RPC request and retry transient failures so deployment
+  // verification is reliable without weakening any of the bytecode checks.
+  const publicClient = createPublicClient({
+    chain,
+    transport: http(deployment.rpcUrl, {
+      batch: { batchSize: 50, wait: 16 },
+      retryCount: 5,
+      retryDelay: 500,
+      timeout: 20_000,
+    }),
+  });
   const actualChain = await publicClient.getChainId();
   if (actualChain !== deployment.chainId) {
     throw new Error(`Deployment expects chain ${deployment.chainId}, but RPC returned ${actualChain}.`);
