@@ -51,28 +51,54 @@ const account = privateKeyToAccount(privateKey);
 const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
 const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
 const testClient = createTestClient({ chain, mode: "anvil", transport: http(rpcUrl) });
+const narrate = process.env.FIRSTLESS_E2E_JSON_ONLY !== "1";
+const transactions = [];
+
+function say(message = "") {
+  if (narrate) console.log(message);
+}
+
+function chapter(title) {
+  say(`\n${title}`);
+}
 
 function invariant(condition, message) {
   if (!condition) throw new Error(`E2E invariant failed: ${message}`);
 }
 
-async function writeContract(address, abi, functionName, args = []) {
+async function writeContract(address, abi, functionName, args = [], label = functionName) {
   const { request } = await publicClient.simulateContract({ account, address, abi, functionName, args });
   const hash = await walletClient.writeContract(request);
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   invariant(receipt.status === "success", `${functionName} transaction reverted`);
+  transactions.push({ label, hash, block: receipt.blockNumber.toString() });
+  say(`  ${label}`);
+  say(`  tx ${hash}`);
+  say(`  confirmed in block ${receipt.blockNumber}`);
   return hash;
 }
 
 invariant(await publicClient.getChainId() === deployment.chainId, "deployment and RPC chain IDs differ");
-for (const address of [deployment.poolManager, deployment.hook, deployment.router, deployment.redeemer]) {
+for (const address of [deployment.poolManager, deployment.hook, deployment.router, deployment.redeemer, deployment.token0, deployment.token1]) {
   invariant((await publicClient.getCode({ address })) !== "0x", `no bytecode at ${address}`);
 }
 
+const [token0Name, token1Name] = await Promise.all([
+  publicClient.readContract({ address: deployment.token0, abi: tokenAbi, functionName: "name" }),
+  publicClient.readContract({ address: deployment.token1, abi: tokenAbi, functionName: "name" }),
+]);
+const tokenOut0 = deployment.token0Symbol === "fETH";
+invariant(tokenOut0 || deployment.token1Symbol === "fETH", "the local pair must include fETH");
 const outputAmount = parseEther("10");
-const tokenOut0 = false;
-const inputToken = deployment.token0;
-const outputToken = deployment.token1;
+const inputToken = tokenOut0 ? deployment.token1 : deployment.token0;
+const outputToken = tokenOut0 ? deployment.token0 : deployment.token1;
+const inputSymbol = tokenOut0 ? deployment.token1Symbol : deployment.token0Symbol;
+const outputSymbol = tokenOut0 ? deployment.token0Symbol : deployment.token1Symbol;
+
+chapter("Now let’s use the deployment like a real user.");
+say(`The pair uses our own local test tokens: ${token0Name} (${deployment.token0Symbol}) and ${token1Name} (${deployment.token1Symbol}).`);
+say(`This run asks for exactly 10 ${outputSymbol}. Firstless quotes a conservative maximum in ${inputSymbol}, sends the output now, and calculates the final bill after the block closes.`);
+
 const inputBefore = await publicClient.readContract({ address: inputToken, abi: tokenAbi, functionName: "balanceOf", args: [account.address] });
 const outputBefore = await publicClient.readContract({ address: outputToken, abi: tokenAbi, functionName: "balanceOf", args: [account.address] });
 const maximumInput = await publicClient.readContract({
@@ -82,7 +108,9 @@ const maximumInput = await publicClient.readContract({
   args: [tokenOut0, outputAmount],
 });
 
-await writeContract(inputToken, tokenAbi, "approve", [deployment.router, maximumInput]);
+chapter("1. Lock the maximum and execute the signed exact-output order");
+say(`The hook quotes ${formatUnits(maximumInput, 18)} ${inputSymbol} as the maximum. That is escrow, not the final price.`);
+await writeContract(inputToken, tokenAbi, "approve", [deployment.router, maximumInput], `Approve ${inputSymbol} for the signed-order router`);
 const [nonce, signingBlock] = await Promise.all([
   publicClient.readContract({ address: deployment.router, abi: routerAbi, functionName: "nonces", args: [account.address] }),
   publicClient.getBlockNumber(),
@@ -94,7 +122,7 @@ const order = {
   recipient: account.address,
   callTarget: zeroAddress,
   callDataHash: keccak256("0x"),
-  zeroForOne: true,
+  zeroForOne: !tokenOut0,
   amountOut: outputAmount,
   maximumInput,
   validAfter: signingBlock,
@@ -131,12 +159,22 @@ const poolKey = {
   tickSpacing: deployment.tickSpacing,
   hooks: deployment.hook,
 };
-const orderHash = await writeContract(deployment.router, routerAbi, "execute", [poolKey, order, signature, "0x"]);
+say("The EIP-712 signature binds the payer, pool, recipient, amount, maximum, nonce, call plan, and validity window. Signing is offchain; execution is the transaction below.");
+const orderHash = await writeContract(
+  deployment.router,
+  routerAbi,
+  "execute",
+  [poolKey, order, signature, "0x"],
+  `Execute order #0 and deliver exactly 10 ${outputSymbol}`,
+);
 const outputAfterExecution = await publicClient.readContract({ address: outputToken, abi: tokenAbi, functionName: "balanceOf", args: [account.address] });
 invariant(outputAfterExecution - outputBefore === outputAmount, "exact output was not delivered in the execution transaction");
+say(`  balance check: the wallet received exactly ${formatUnits(outputAfterExecution - outputBefore, 18)} ${outputSymbol} in that transaction`);
 
+chapter("2. Close the Ethereum block set and calculate the marginal bill");
 await testClient.mine({ blocks: 1 });
-const settleHash = await writeContract(deployment.hook, hookAbi, "settleExpiredEpoch");
+say("We mine the next Anvil block so the set is complete. No order is priced from a partial set.");
+const settleHash = await writeContract(deployment.hook, hookAbi, "settleExpiredEpoch", [], "Settle the completed block set");
 const claimSimulation = await publicClient.simulateContract({
   account,
   address: deployment.hook,
@@ -146,8 +184,12 @@ const claimSimulation = await publicClient.simulateContract({
 });
 const refund = claimSimulation.result;
 invariant(refund > 0n && refund < maximumInput, "settled refund must be positive and smaller than escrow");
-await writeContract(deployment.hook, hookAbi, "claimRefund", [0n]);
-await writeContract(deployment.poolManager, managerAbi, "setOperator", [deployment.redeemer, true]);
+const finalBill = maximumInput - refund;
+say(`The final leave-one-out bill is ${formatUnits(finalBill, 18)} ${inputSymbol}. The unused ${formatUnits(refund, 18)} ${inputSymbol} belongs to the trader.`);
+
+chapter("3. Turn the backed refund into the underlying test token");
+await writeContract(deployment.hook, hookAbi, "claimRefund", [0n], `Claim order #0 refund as a backed PoolManager claim`);
+await writeContract(deployment.poolManager, managerAbi, "setOperator", [deployment.redeemer, true], "Authorize the refund redeemer");
 const inputCurrencyId = BigInt(inputToken);
 const backedClaim = await publicClient.readContract({
   address: deployment.poolManager,
@@ -156,15 +198,23 @@ const backedClaim = await publicClient.readContract({
   args: [account.address, inputCurrencyId],
 });
 invariant(backedClaim === refund, "claimed refund does not equal PoolManager backing");
-const redeemHash = await writeContract(deployment.redeemer, redeemerAbi, "redeem", [inputToken, backedClaim, account.address]);
+say(`  custody check: PoolManager backs ${formatUnits(backedClaim, 18)} ${inputSymbol} before redemption`);
+const redeemHash = await writeContract(
+  deployment.redeemer,
+  redeemerAbi,
+  "redeem",
+  [inputToken, backedClaim, account.address],
+  `Redeem the claim for ${formatUnits(backedClaim, 18)} ${inputSymbol}`,
+);
 const inputAfterRefund = await publicClient.readContract({ address: inputToken, abi: tokenAbi, functionName: "balanceOf", args: [account.address] });
-const finalBill = maximumInput - refund;
 invariant(inputBefore - inputAfterRefund === finalBill, "underlying balance does not match final marginal bill");
+say(`  balance check: the wallet's net spend is ${formatUnits(inputBefore - inputAfterRefund, 18)} ${inputSymbol}`);
 
+chapter("4. Prove that new liquidity cannot earn from an old set");
 const deposit0 = parseEther("25");
 const deposit1 = parseEther("25");
-await writeContract(deployment.token0, tokenAbi, "approve", [deployment.hook, deposit0]);
-await writeContract(deployment.token1, tokenAbi, "approve", [deployment.hook, deposit1]);
+await writeContract(deployment.token0, tokenAbi, "approve", [deployment.hook, deposit0], `Approve 25 ${deployment.token0Symbol} for the hook`);
+await writeContract(deployment.token1, tokenAbi, "approve", [deployment.hook, deposit1], `Approve 25 ${deployment.token1Symbol} for the hook`);
 const lpBefore = await publicClient.readContract({ address: deployment.hook, abi: hookAbi, functionName: "balanceOf", args: [account.address] });
 const depositId = await publicClient.readContract({ address: deployment.hook, abi: hookAbi, functionName: "nextDepositId" });
 await writeContract(deployment.hook, hookAbi, "addLiquidity", [{
@@ -176,14 +226,26 @@ await writeContract(deployment.hook, hookAbi, "addLiquidity", [{
   tickLower: deployment.minimumTick,
   tickUpper: deployment.maximumTick,
   userInputSalt: zeroHash,
-}]);
-const lpWhilePending = await publicClient.readContract({ address: deployment.hook, abi: hookAbi, functionName: "balanceOf", args: [account.address] });
+}], `Submit a pending deposit with 25 ${deployment.token0Symbol} and 25 ${deployment.token1Symbol} desired`);
+const [lpWhilePending, queuedDeposit] = await Promise.all([
+  publicClient.readContract({ address: deployment.hook, abi: hookAbi, functionName: "balanceOf", args: [account.address] }),
+  publicClient.readContract({ address: deployment.hook, abi: hookAbi, functionName: "pendingLiquidity", args: [depositId] }),
+]);
 invariant(lpWhilePending === lpBefore, "pending deposit received active shares early");
+say(`  queue check: the hook accepted ${formatUnits(queuedDeposit[2], 18)} ${deployment.token0Symbol} and ${formatUnits(queuedDeposit[3], 18)} ${deployment.token1Symbol} at the live ratio`);
+say("  ownership check: the pending deposit received zero active LP shares in its queue block");
 await testClient.mine({ blocks: 1 });
 const preview = await publicClient.readContract({ address: deployment.hook, abi: hookAbi, functionName: "previewPendingLiquidity", args: [depositId] });
-await writeContract(deployment.hook, hookAbi, "activatePendingLiquidity", [depositId, preview[0]]);
+await writeContract(
+  deployment.hook,
+  hookAbi,
+  "activatePendingLiquidity",
+  [depositId, preview[0]],
+  `Activate deposit #${depositId} one block later`,
+);
 const lpAfterActivation = await publicClient.readContract({ address: deployment.hook, abi: hookAbi, functionName: "balanceOf", args: [account.address] });
 invariant(lpAfterActivation === lpBefore + preview[0], "activation did not mint the previewed shares");
+say(`  share check: activation minted ${formatUnits(preview[0], 18)} FIRST-LP`);
 const burnAmount = preview[0] / 2n;
 await writeContract(deployment.hook, hookAbi, "removeLiquidity", [{
   liquidity: burnAmount,
@@ -193,7 +255,7 @@ await writeContract(deployment.hook, hookAbi, "removeLiquidity", [{
   tickLower: deployment.minimumTick,
   tickUpper: deployment.maximumTick,
   userInputSalt: zeroHash,
-}]);
+}], `Withdraw half of the newly activated LP position`);
 const lpAfterRemoval = await publicClient.readContract({ address: deployment.hook, abi: hookAbi, functionName: "balanceOf", args: [account.address] });
 invariant(lpAfterRemoval === lpAfterActivation - burnAmount, "active LP withdrawal burned the wrong share amount");
 
@@ -202,16 +264,26 @@ const managerClaim0 = await publicClient.readContract({ address: deployment.pool
 const managerClaim1 = await publicClient.readContract({ address: deployment.poolManager, abi: managerAbi, functionName: "balanceOf", args: [deployment.hook, BigInt(deployment.token1)] });
 invariant(accounted[0] === managerClaim0 && accounted[1] === managerClaim1, "final hook buckets do not equal PoolManager custody");
 
-console.log(JSON.stringify({
-  result: "pass",
-  chainId: deployment.chainId,
-  orderHash,
-  settleHash,
-  redeemHash,
-  exactOutput: formatUnits(outputAmount, 18),
-  maximumInput: formatUnits(maximumInput, 18),
-  finalBill: formatUnits(finalBill, 18),
-  refund: formatUnits(refund, 18),
-  pendingSharesActivated: formatUnits(preview[0], 18),
-  lpSharesBurned: formatUnits(burnAmount, 18),
-}, null, 2));
+chapter("Fresh Firstless demo finished");
+say(`The order delivered exactly 10 ${outputSymbol}, charged ${formatUnits(finalBill, 18)} ${inputSymbol}, and returned ${formatUnits(refund, 18)} ${inputSymbol}.`);
+say(`All ${transactions.length} lifecycle transactions confirmed, and the hook's final accounting matches PoolManager custody.`);
+say("Open the dashboard with the local demo wallet, then choose Activity to see the hook transactions from this same chain.");
+
+if (process.env.FIRSTLESS_E2E_HUMAN_ONLY !== "1") {
+  console.log(JSON.stringify({
+    result: "pass",
+    chainId: deployment.chainId,
+    orderHash,
+    settleHash,
+    redeemHash,
+    inputSymbol,
+    outputSymbol,
+    exactOutput: formatUnits(outputAmount, 18),
+    maximumInput: formatUnits(maximumInput, 18),
+    finalBill: formatUnits(finalBill, 18),
+    refund: formatUnits(refund, 18),
+    pendingSharesActivated: formatUnits(preview[0], 18),
+    lpSharesBurned: formatUnits(burnAmount, 18),
+    transactions,
+  }, null, 2));
+}

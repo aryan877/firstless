@@ -17,13 +17,17 @@ import { privateKeyToAccount } from "viem/accounts";
 const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(webRoot, "../..");
 const contractsRoot = resolve(repoRoot, "packages/contracts");
-const deploymentPath = process.env.FIRSTLESS_SEPOLIA_DEPLOYMENT
-  || resolve(webRoot, "public/deployments/sepolia.json");
-const rpcUrl = process.env.ETHEREUM_SEPOLIA_RPC_URL;
-const privateKey = process.env.FIRSTLESS_SEPOLIA_PRIVATE_KEY;
+const deploymentPath = process.env.FIRSTLESS_TESTNET_DEPLOYMENT
+  || process.env.FIRSTLESS_SEPOLIA_DEPLOYMENT
+  || resolve(webRoot, "public/deployments/unichain-sepolia.json");
+const rpcUrl = process.env.FIRSTLESS_TESTNET_RPC_URL
+  || process.env.UNICHAIN_SEPOLIA_RPC_URL
+  || process.env.ETHEREUM_SEPOLIA_RPC_URL;
+const privateKey = process.env.FIRSTLESS_TESTNET_PRIVATE_KEY
+  || process.env.FIRSTLESS_SEPOLIA_PRIVATE_KEY;
 
-if (!rpcUrl) throw new Error("ETHEREUM_SEPOLIA_RPC_URL is required.");
-if (!privateKey) throw new Error("FIRSTLESS_SEPOLIA_PRIVATE_KEY is required.");
+if (!rpcUrl) throw new Error("FIRSTLESS_TESTNET_RPC_URL is required.");
+if (!privateKey) throw new Error("FIRSTLESS_TESTNET_PRIVATE_KEY is required.");
 
 async function json(path) {
   return JSON.parse(await readFile(path, "utf8"));
@@ -43,9 +47,9 @@ const [hookAbi, routerAbi, redeemerAbi, tokenAbi, managerAbi] = await Promise.al
 ]);
 
 const chain = defineChain({
-  id: 11_155_111,
-  name: "Ethereum Sepolia",
-  nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
+  id: deployment.chainId,
+  name: deployment.chainName,
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [rpcUrl] } },
   testnet: true,
 });
@@ -54,14 +58,19 @@ const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
 const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
 
 function invariant(condition, message) {
-  if (!condition) throw new Error(`Sepolia E2E invariant failed: ${message}`);
+  if (!condition) throw new Error(`Testnet E2E invariant failed: ${message}`);
 }
 
 async function writeContract(address, abi, functionName, args = []) {
-  const { request } = await publicClient.simulateContract({ account, address, abi, functionName, args });
-  const hash = await walletClient.writeContract(request);
+  // Unichain's Flashblocks-aware public RPC can expose a preconfirmation view
+  // whose account nonce lags the canonical head. Each write waits for its
+  // canonical receipt, so the latest canonical nonce is the correct next nonce.
+  const nonce = await publicClient.getTransactionCount({ address: account.address, blockTag: "latest" });
+  const { request } = await publicClient.simulateContract({ account, address, abi, functionName, args, nonce });
+  const hash = await walletClient.writeContract({ ...request, nonce });
   const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 180_000 });
   invariant(receipt.status === "success", `${functionName} transaction reverted`);
+  await waitForBlock(receipt.blockNumber);
   return { hash, receipt };
 }
 
@@ -72,7 +81,7 @@ async function waitForBlock(targetBlock) {
     if (current >= targetBlock) return current;
     await new Promise((resolveWait) => setTimeout(resolveWait, 2_000));
   }
-  throw new Error(`Timed out waiting for Sepolia block ${targetBlock}.`);
+  throw new Error(`Timed out waiting for ${deployment.chainName} block ${targetBlock}.`);
 }
 
 async function waitForLaterBlock(blockNumber) {
@@ -80,7 +89,7 @@ async function waitForLaterBlock(blockNumber) {
 }
 
 invariant(deployment.mode === "testnet", "deployment is not marked testnet");
-invariant(deployment.chainId === 11_155_111, "deployment is not Ethereum Sepolia");
+invariant([1_301, 11_155_111].includes(deployment.chainId), "deployment is not a supported public testnet");
 invariant(await publicClient.getChainId() === deployment.chainId, "deployment and RPC chain IDs differ");
 for (const address of [
   deployment.poolManager,
@@ -91,6 +100,19 @@ for (const address of [
   deployment.token1,
 ]) {
   invariant((await publicClient.getCode({ address })) !== "0x", `no bytecode at ${address}`);
+}
+
+const transactions = {};
+const openEpoch = await publicClient.readContract({
+  address: deployment.hook,
+  abi: hookAbi,
+  functionName: "currentEpoch",
+});
+if (openEpoch[0] !== 0n) {
+  await waitForLaterBlock(openEpoch[0]);
+  transactions.preflightSettlement = (
+    await writeContract(deployment.hook, hookAbi, "settleExpiredEpoch")
+  ).hash;
 }
 
 const tokenOut0 = deployment.token0Symbol === "fETH";
@@ -122,7 +144,6 @@ const maximumInput = await publicClient.readContract({
 });
 invariant(inputBefore >= maximumInput + parseEther("25"), "deployer lacks enough fUSD for the smoke test");
 
-const transactions = {};
 transactions.orderApproval = (
   await writeContract(inputToken, tokenAbi, "approve", [deployment.router, maximumInput])
 ).hash;

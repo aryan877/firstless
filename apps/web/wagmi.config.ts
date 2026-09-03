@@ -10,6 +10,7 @@ export default defineConfig({
         "FirstlessHook.sol/FirstlessHook.json",
         "FirstlessRefundRedeemer.sol/FirstlessRefundRedeemer.json",
         "FirstlessRouter.sol/FirstlessRouter.json",
+        "FirstlessSepoliaToken.sol/FirstlessSepoliaToken.json",
         "LocalDevContracts.sol/FirstlessDevToken.json",
         "PoolManager.sol/PoolManager.json",
       ],

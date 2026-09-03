@@ -1,5 +1,5 @@
 import { createConfig, http, type CreateConnectorFn } from "wagmi";
-import { sepolia } from "wagmi/chains";
+import { sepolia, unichainSepolia } from "wagmi/chains";
 import { coinbaseWallet, injected, mock, safe, walletConnect } from "wagmi/connectors";
 import { defineChain } from "viem";
 
@@ -31,11 +31,12 @@ if (walletConnectProjectId) {
 }
 
 export const wagmiConfig = createConfig({
-  chains: [firstlessLocal, sepolia],
+  chains: [firstlessLocal, unichainSepolia, sepolia],
   connectors,
   multiInjectedProviderDiscovery: true,
   transports: {
     [firstlessLocal.id]: http(firstlessLocal.rpcUrls.default.http[0]),
+    [unichainSepolia.id]: http(import.meta.env.VITE_UNICHAIN_SEPOLIA_RPC_URL as string | undefined),
     [sepolia.id]: http(import.meta.env.VITE_ETHEREUM_SEPOLIA_RPC_URL as string | undefined),
   },
 });

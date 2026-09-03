@@ -73,7 +73,7 @@ PRIVATE_KEY="$LOCAL_PRIVATE_KEY" FIRSTLESS_RPC_URL="$RPC_URL" FIRSTLESS_DEPLOYME
   --rpc-url "$RPC_URL" \
   --broadcast \
   --slow \
-  -vv
+  -q
 
 trap - EXIT
 echo "Firstless local chain is ready at $RPC_URL (PID $anvil_pid)."

@@ -16,13 +16,15 @@ import {FirstlessRefundRedeemer} from "firstless/periphery/FirstlessRefundRedeem
 import {FirstlessRouter} from "firstless/periphery/FirstlessRouter.sol";
 import {FirstlessSepoliaToken} from "./testnet/FirstlessSepoliaToken.sol";
 
-/// @notice Deploys and seeds the complete public Firstless demo on Ethereum Sepolia.
+/// @notice Deploys and seeds the complete public Firstless demo on a supported testnet.
 contract DeployFirstless is Script {
     using PoolIdLibrary for PoolKey;
 
     address internal constant CREATE2_DEPLOYER = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address internal constant ETHEREUM_SEPOLIA_POOL_MANAGER = 0xE03A1074c86CFeDd5C142C4F04F1a1536e203543;
+    address internal constant UNICHAIN_SEPOLIA_POOL_MANAGER = 0x00B036B58a818B1BC34d502D3fE730Db729e62AC;
     uint256 internal constant ETHEREUM_SEPOLIA_CHAIN_ID = 11_155_111;
+    uint256 internal constant UNICHAIN_SEPOLIA_CHAIN_ID = 1301;
     uint160 internal constant FLAGS = uint160(
         Hooks.BEFORE_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.BEFORE_SWAP_RETURNS_DELTA_FLAG
             | Hooks.BEFORE_ADD_LIQUIDITY_FLAG | Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG
@@ -35,8 +37,16 @@ contract DeployFirstless is Script {
 
     error HookAddressMismatch();
     error InvalidDeployer();
-    error WrongChain();
+    error UnsupportedChain();
     error WrongPoolManager();
+
+    struct NetworkConfig {
+        address poolManager;
+        string chainName;
+        string publicRpcUrl;
+        string explorerUrl;
+        string manifestName;
+    }
 
     function run()
         external
@@ -48,18 +58,19 @@ contract DeployFirstless is Script {
             FirstlessSepoliaToken token1
         )
     {
-        address deployer = vm.envAddress("DEPLOYER");
+        NetworkConfig memory network = _networkConfig();
+        uint256 privateKey = vm.envUint("PRIVATE_KEY");
+        address deployer = vm.addr(privateKey);
         if (deployer == address(0)) revert InvalidDeployer();
         IPoolManager manager = IPoolManager(vm.envAddress("POOL_MANAGER"));
-        if (block.chainid != ETHEREUM_SEPOLIA_CHAIN_ID) revert WrongChain();
-        if (address(manager) != ETHEREUM_SEPOLIA_POOL_MANAGER) revert WrongPoolManager();
+        if (address(manager) != network.poolManager) revert WrongPoolManager();
 
         uint256 deploymentBlock = block.number;
         uint256 feeNumerator = vm.envOr("FEE_NUMERATOR", uint256(997));
         uint256 feeDenominator = vm.envOr("FEE_DENOMINATOR", uint256(1000));
         uint256 outputCapBps = vm.envOr("OUTPUT_CAP_BPS", uint256(1000));
 
-        vm.startBroadcast();
+        vm.startBroadcast(privateKey);
         FirstlessSepoliaToken faucetUsd =
             new FirstlessSepoliaToken("Firstless Sepolia USD", "fUSD", deployer, INITIAL_TOKEN_SUPPLY);
         FirstlessSepoliaToken faucetEth =
@@ -108,8 +119,8 @@ contract DeployFirstless is Script {
         );
         vm.stopBroadcast();
 
-        _writeDeployment(deploymentBlock, key, manager, hook, router, redeemer, token0, token1);
-        console2.log("Firstless Sepolia deployment");
+        _writeDeployment(deploymentBlock, network, key, manager, hook, router, redeemer, token0, token1);
+        console2.log("Firstless testnet deployment");
         console2.log("PoolManager", address(manager));
         console2.log("FirstlessHook", address(hook));
         console2.log("FirstlessRouter", address(router));
@@ -122,6 +133,7 @@ contract DeployFirstless is Script {
 
     function _writeDeployment(
         uint256 deploymentBlock,
+        NetworkConfig memory network,
         PoolKey memory key,
         IPoolManager manager,
         FirstlessHook hook,
@@ -130,16 +142,13 @@ contract DeployFirstless is Script {
         FirstlessSepoliaToken token0,
         FirstlessSepoliaToken token1
     ) internal {
-        string memory objectKey = "firstlessSepoliaDeployment";
+        string memory objectKey = "firstlessTestnetDeployment";
         vm.serializeUint(objectKey, "schemaVersion", 1);
         vm.serializeString(objectKey, "mode", "testnet");
         vm.serializeUint(objectKey, "chainId", block.chainid);
-        vm.serializeString(objectKey, "chainName", "Ethereum Sepolia");
-        vm.serializeString(
-            objectKey,
-            "rpcUrl",
-            vm.envOr("FIRSTLESS_PUBLIC_RPC_URL", string("https://ethereum-sepolia-rpc.publicnode.com"))
-        );
+        vm.serializeString(objectKey, "chainName", network.chainName);
+        vm.serializeString(objectKey, "rpcUrl", vm.envOr("FIRSTLESS_PUBLIC_RPC_URL", network.publicRpcUrl));
+        vm.serializeString(objectKey, "explorerUrl", network.explorerUrl);
         vm.serializeUint(objectKey, "deploymentBlock", deploymentBlock);
         vm.serializeAddress(objectKey, "poolManager", address(manager));
         vm.serializeAddress(objectKey, "hook", address(hook));
@@ -161,7 +170,30 @@ contract DeployFirstless is Script {
         vm.serializeUint(objectKey, "outputCapBps", hook.capBps());
         vm.serializeUint(objectKey, "initialLiquidity", INITIAL_LIQUIDITY);
         string memory json = vm.serializeUint(objectKey, "initialTokenSupply", INITIAL_TOKEN_SUPPLY);
-        string memory defaultPath = string.concat(vm.projectRoot(), "/../../apps/web/public/deployments/sepolia.json");
+        string memory defaultPath =
+            string.concat(vm.projectRoot(), "/../../apps/web/public/deployments/", network.manifestName, ".json");
         vm.writeJson(json, vm.envOr("FIRSTLESS_DEPLOYMENT_PATH", defaultPath));
+    }
+
+    function _networkConfig() internal view returns (NetworkConfig memory network) {
+        if (block.chainid == ETHEREUM_SEPOLIA_CHAIN_ID) {
+            return NetworkConfig({
+                poolManager: ETHEREUM_SEPOLIA_POOL_MANAGER,
+                chainName: "Ethereum Sepolia",
+                publicRpcUrl: "https://ethereum-sepolia-rpc.publicnode.com",
+                explorerUrl: "https://sepolia.etherscan.io",
+                manifestName: "sepolia"
+            });
+        }
+        if (block.chainid == UNICHAIN_SEPOLIA_CHAIN_ID) {
+            return NetworkConfig({
+                poolManager: UNICHAIN_SEPOLIA_POOL_MANAGER,
+                chainName: "Unichain Sepolia",
+                publicRpcUrl: "https://sepolia.unichain.org",
+                explorerUrl: "https://sepolia.uniscan.xyz",
+                manifestName: "unichain-sepolia"
+            });
+        }
+        revert UnsupportedChain();
     }
 }

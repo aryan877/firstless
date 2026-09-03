@@ -38,8 +38,10 @@
 .fl-nav .brand__mark { width: 3.2rem; height: 2.4rem; }
 .fl-nav .brand__name { font-size: 1.38rem; letter-spacing: -.055em; }
 .fl-nav nav { display: flex; gap: 2.2rem; color: var(--fl-muted); font-size: .82rem; }
-.fl-nav nav a { transition: color .2s ease; }
-.fl-nav nav a:hover { color: var(--fl-ink); }
+.fl-nav nav a,
+.fl-nav nav button { padding: 0; border: 0; color: inherit; background: transparent; font: inherit; transition: color .2s ease; }
+.fl-nav nav a:hover,
+.fl-nav nav button:hover { color: var(--fl-ink); }
 
 .fl-nav__button,
 .fl-hero__actions a,
@@ -502,6 +504,7 @@
 .fl-footer .brand--light .brand__mark { filter: invert(1); }
 .fl-footer p { margin: 0; color: #9b9c95; font-size: 1.35rem; line-height: 1.35; }
 .fl-footer button { color: var(--fl-ink); background: #eef0e9; }
+.fl-footer .fl-footer__docs { grid-column: 3; margin-top: 4rem; color: #d9dbd3; background: #2a2c27; }
 .fl-footer > span { grid-column: 1 / -1; }
 
 @media (max-width: 1100px) {
@@ -612,7 +615,8 @@
   .fl-dashboard__screen { min-height: 25rem; }
   .fl-dashboard__trade { margin: 1rem; padding: 1.3rem; }
   .fl-footer { grid-template-columns: 1fr; padding: 4rem 1.2rem; }
-  .fl-footer > span { grid-column: auto; }
+  .fl-footer .fl-footer__docs,
+  .fl-footer > span { grid-column: auto; margin-top: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

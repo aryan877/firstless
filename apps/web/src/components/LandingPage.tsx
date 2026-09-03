@@ -9,6 +9,7 @@ import "@/landing-v2.css";
 
 type LandingPageProps = {
   onOpenDashboard: () => void;
+  onOpenDocs: () => void;
 };
 
 type MotionAssetName = "alice" | "bob" | "eve" | "liam" | "clearing-table" | "liquidity-platform";
@@ -85,12 +86,12 @@ const scenes = [
   },
   {
     id: "wait",
-    alt: "Bob arrives while Alice’s maximum input waits through one Ethereum block",
-    marker: "Ethereum keeps the set open",
-    title: "One Ethereum block.",
-    body: "Alice can already use her output. Her maximum input stays reserved while opposite orders join the same Ethereum block.",
+    alt: "Bob arrives while Alice’s maximum input waits through one canonical block",
+    marker: "The chain keeps the set open",
+    title: "One canonical block.",
+    body: "Alice can already use her output. Her maximum input stays reserved while opposite orders join the same canonical block.",
     side: "Bob arrives before the block closes.",
-    signal: "Ethereum block",
+    signal: "Canonical block",
   },
   {
     id: "clear",
@@ -106,17 +107,17 @@ const scenes = [
     alt: "Liam puts two tokens on a waiting platform before receiving an LP ownership ticket",
     marker: "Liam stocks the pool",
     title: "His money waits. His ownership waits too.",
-    body: "Liam deposits both tokens. After a later Ethereum block, they activate at the pool’s current reserve ratio and his LP shares appear at the same moment.",
+    body: "Liam deposits both tokens. After a later canonical block, they activate at the pool’s current reserve ratio and his LP shares appear at the same moment.",
     side: "No shares means no old fees to grab.",
     signal: "pending",
   },
 ] as const;
 
-function EthereumLockup({ short = false }: { short?: boolean }) {
+function BlockLockup({ short = false }: { short?: boolean }) {
   return (
     <span className="fl-ethereum-lockup">
       <span aria-hidden="true">◆</span>
-      {short ? "Ethereum" : "Ethereum block"}
+      {short ? "block" : "canonical block"}
     </span>
   );
 }
@@ -220,7 +221,7 @@ function SceneArtwork({ id, alt, reduceMotion }: { id: string; alt: string; redu
   );
 }
 
-export function LandingPage({ onOpenDashboard }: LandingPageProps) {
+export function LandingPage({ onOpenDashboard, onOpenDocs }: LandingPageProps) {
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -236,7 +237,7 @@ export function LandingPage({ onOpenDashboard }: LandingPageProps) {
           <a href="#how">how it clears</a>
           <a href="#math">the math</a>
           <a href="#refund">the refund</a>
-          <a href="#proof">proof</a>
+          <button type="button" onClick={onOpenDocs}>docs</button>
         </nav>
         <button className="fl-nav__button" onClick={onOpenDashboard}>
           open dashboard <ArrowUpRight aria-hidden="true" />
@@ -251,9 +252,9 @@ export function LandingPage({ onOpenDashboard }: LandingPageProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
         >
-          <p className="fl-kicker"><EthereumLockup short /> Setwise clearing for Uniswap v4</p>
+          <p className="fl-kicker"><BlockLockup short /> Setwise clearing for Uniswap v4</p>
           <h1 id="fl-hero-title"><span>Trade now.</span><em>Settle together.</em></h1>
-          <p className="fl-hero__lede">Your output arrives now. The complete Ethereum block determines the final bill and refund.</p>
+          <p className="fl-hero__lede">Your output arrives now. The complete canonical block determines the final bill and refund.</p>
           <div className="fl-hero__actions">
             <a href="#how">see the set <ArrowDownRight aria-hidden="true" /></a>
             <button onClick={onOpenDashboard}>try the product <ArrowRight aria-hidden="true" /></button>
@@ -296,7 +297,7 @@ export function LandingPage({ onOpenDashboard }: LandingPageProps) {
         <span>Each order pays the cost it adds to the completed set—not a uniform price and not a guessed attacker label.</span>
       </section>
 
-      <section id="how" className="fl-story" aria-label="How Firstless clears an Ethereum block set">
+      <section id="how" className="fl-story" aria-label="How Firstless clears a canonical block set">
         <div className="fl-story__intro">
           <span>How Firstless clears a trade</span>
           <span>Signed output through final refund</span>
@@ -320,7 +321,7 @@ export function LandingPage({ onOpenDashboard }: LandingPageProps) {
               <SceneArtwork id={scene.id} alt={scene.alt} reduceMotion={reduceMotion} />
               <p className="fl-scene__side">{scene.side}</p>
               <strong className="fl-scene__signal">
-                {scene.id === "wait" ? <EthereumLockup /> : scene.signal}
+                {scene.id === "wait" ? <BlockLockup /> : scene.signal}
               </strong>
             </motion.article>
           ))}
@@ -335,14 +336,14 @@ export function LandingPage({ onOpenDashboard }: LandingPageProps) {
           <h2 id="refund-title">The maximum was a safety deposit. It was never the price.</h2>
         </div>
         <div className="fl-refund__math" aria-label="12.2468 fUSD maximum minus 10.1314 fUSD final bill equals a 2.1153 fUSD refund">
-          <p>Same Alice · same 10 fETH order</p>
+          <p>Worked 1:1 pool example · same 10 fETH order</p>
           <div><span>Maximum escrowed at signature</span><strong>12.2468 <small>fUSD</small></strong></div>
           <b className="fl-refund__operator" aria-hidden="true">−</b>
           <div><span>Final marginal bill after the block</span><strong>10.1314 <small>fUSD</small></strong></div>
           <b className="fl-refund__operator" aria-hidden="true">=</b>
           <div className="is-result"><span>Refund returned to Alice</span><strong>2.1153 <small>fUSD</small></strong></div>
         </div>
-        <p className="fl-refund__note">Alice could use her 10 fETH output immediately. Only the final bill and refund waited for the completed Ethereum block.</p>
+        <p className="fl-refund__note">Alice could use her 10 fETH output immediately. Only the final bill and refund waited for the completed canonical block.</p>
       </section>
 
       <section id="proof" className="fl-proof" aria-labelledby="proof-title">
@@ -368,7 +369,7 @@ export function LandingPage({ onOpenDashboard }: LandingPageProps) {
               <div><span>maximum held</span><b>12.2468 fUSD</b></div>
               <span className="fl-dashboard__fake-button">sign exact output</span>
             </div>
-            <div className="fl-dashboard__round"><span>current Ethereum block</span><b>collecting</b><i /><small>refund settles next block</small></div>
+            <div className="fl-dashboard__round"><span>current canonical block</span><b>collecting</b><i /><small>refund settles next block</small></div>
           </div>
         </button>
       </section>
@@ -377,6 +378,7 @@ export function LandingPage({ onOpenDashboard }: LandingPageProps) {
         <Brand light />
         <p>Less ordering power.<br />More honest clearing.</p>
         <button onClick={onOpenDashboard}>open dashboard <ArrowUpRight aria-hidden="true" /></button>
+        <button className="fl-footer__docs" onClick={onOpenDocs}>read the docs <ArrowUpRight aria-hidden="true" /></button>
         <span>Built for the Uniswap Hook Incubator. Experimental, unaudited software.</span>
       </footer>
     </main>

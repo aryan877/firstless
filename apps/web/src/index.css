@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -234,6 +233,8 @@ a { color: inherit; text-decoration: none; }
 .dash-summary small { display: block; color: var(--ink-soft); font-size: .72rem; }
 .dash-summary strong { display: block; margin: .7rem 0 .25rem; font-size: 1.55rem; font-weight: 570; letter-spacing: -.045em; }
 .dash-summary small { font-family: var(--font-system); font-size: .58rem; }
+.dash-summary .value-pair { display: flex; align-items: baseline; gap: .32em; }
+.value-pair i { color: var(--ink-soft); font: inherit; font-style: normal; }
 
 .dash-grid { display: grid; grid-template-columns: minmax(30rem, 1.02fr) minmax(21rem, .78fr); gap: 1rem; margin-top: 1rem; }
 .dash-action-column { min-width: 0; }
@@ -323,7 +324,9 @@ a { color: inherit; text-decoration: none; }
 .activity-card article > div:last-child { display: grid; justify-items: end; gap: .2rem; }
 .activity-card small { color: var(--ink-soft); font-family: var(--font-system); font-size: .55rem; }
 .activity-card code { display: inline-flex; align-items: center; gap: .3rem; color: var(--blue); font-family: var(--font-system); font-size: .55rem; }
-.activity-card code svg { width: .65rem; }
+.activity-card article > div:last-child a { display: inline-flex; align-items: center; gap: .3rem; color: var(--blue); }
+.activity-card article > div:last-child a:hover code { text-decoration: underline; text-underline-offset: .15rem; }
+.activity-card article > div:last-child svg { width: .65rem; }
 
 .round-panel { min-width: 0; min-height: 43rem; overflow: hidden; padding: 1.5rem; border-radius: 1.6rem; background: #242622; color: #f2f2ec; box-shadow: 0 12px 38px rgba(20,21,18,.08); }
 .round-panel__heading { display: flex; justify-content: space-between; gap: 1rem; align-items: start; }
@@ -391,10 +394,13 @@ a { color: inherit; text-decoration: none; }
   .dash-topbar > div:first-child span { display: block; overflow-wrap: anywhere; }
   .dash-topbar__actions > .badge-preview,
   .dash-topbar__actions > .badge-live,
+  .dash-topbar__actions > .badge-idle,
   .dash-topbar__actions > .badge-error { display: none; }
   .dash-topbar__actions button { width: 2.7rem; padding: 0; font-size: 0; }
   .dash-canvas { padding: 1rem 1rem 6rem; }
   .dash-summary { grid-template-columns: 1fr 1fr; }
+  .dash-summary .value-pair { align-items: flex-start; flex-direction: column; gap: .05rem; }
+  .dash-summary .value-pair i { display: none; }
   .dash-grid { grid-template-columns: 1fr; }
   .dash-tabs > [role="tablist"] { overflow-x: auto; justify-content: flex-start; }
   .dash-tabs [role="tab"] { flex: none; }

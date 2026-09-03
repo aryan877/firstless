@@ -2,6 +2,7 @@
   "chainId": 11155111,
   "chainName": "Ethereum Sepolia",
   "deploymentBlock": 11620547,
+  "explorerUrl": "https://sepolia.etherscan.io",
   "feeDenominator": 1000,
   "feeNumerator": 997,
   "hook": "0xCb9De08bf9cdD52275bD5BDAf68937EAdd23EA88",
@@ -17,6 +18,13 @@
   "redeemer": "0x317972d08e4aA4f2DC171886A0e48Dab75e9F03F",
   "router": "0xa5e0305Fe94Cbb230B873227918953fd4e42ef09",
   "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+  "runtimeCodeHashes": {
+    "hook": "0xf5421cd285be3be2344ec69aa484ad18adb200ba03e42afeb53778ef13d51282",
+    "redeemer": "0x923d032ce977717fa7dcc2549a5bc82b2c03db333c0f7fbe2f401816bdabe506",
+    "router": "0x1a43b53a6e206254b442aff5cfe67ebed4dc22f9608625d9bab77eb22ce32300",
+    "token0": "0x6ea8cf486ca38bb7cae4df10ade3d35dfe4dc325a2f2bd2efd97eebd129254ee",
+    "token1": "0x6ea8cf486ca38bb7cae4df10ade3d35dfe4dc325a2f2bd2efd97eebd129254ee"
+  },
   "schemaVersion": 1,
   "tickSpacing": 60,
   "token0": "0x1A884b5Ac9e2229a11183748436489D1f8d3a468",

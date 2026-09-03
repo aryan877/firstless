@@ -4,10 +4,11 @@ Firstless has strong local test coverage. It has not received an independent aud
 
 ## Verified scope
 
-- Foundry: 149 passed, 0 failed, 1 Ethereum Sepolia RPC-only skip.
+- Foundry: 149 passed, 0 failed, 2 public-testnet RPC-only skips.
 - Security suites: 105 checks across core accounting, economic behavior, signatures, callbacks and lifecycle edges.
 - Fuzzing: 1,000 cases per property.
 - Stateful invariants: five properties, 8,192 calls each, zero handler reverts.
+- Release-depth campaign: 655,360 mixed stateful calls and 10,000 cases per fuzz property, zero failures.
 - Production-only instrumentation: 100% lines and functions, 93.98% statements, and 60.23% branches.
 - Slither: the focused high-risk detector set returned zero findings after fixes.
 - Local integration: signed order, immediate output, settlement, refund redemption and LP lifecycle passed.
@@ -31,7 +32,7 @@ npm audit --audit-level=low
 | Orders | A signature binds one payer, pool, direction, output, maximum input, recipient, call plan, clock window, nonce and deadline. |
 | Entry | Only the immutable router can enter the judged hook's swap path. |
 | Output | Exact output is delivered during the signed transaction. A downstream failure rolls back all state and transfers. |
-| Settlement | A set closes only after the Ethereum block advances. Output caps and full-precision arithmetic bound the transition. |
+| Settlement | A set closes only after the canonical chain block advances. Output caps and full-precision arithmetic bound the transition. |
 | Refunds | PoolManager claims back every refund. Claims are owner-bound and single-use. |
 | Liquidity | Pending capital earns no prior fees. LP exits cannot consume refunds or the protection reserve. |
 | Custody | PoolManager claim balances equal the tracked reserves, fees, refunds, escrow, pending deposits and protection reserves. |
@@ -55,7 +56,7 @@ The full Slither pass also reports reviewed lower-confidence patterns. Equality 
 ## Supported boundary
 
 - Conventional ERC-20 pairs only. Native ETH, fee-on-transfer, rebasing and callback-bearing tokens are unsupported.
-- Protection covers exact-output orders in the same Firstless pool and Ethereum-block set.
+- Protection covers exact-output orders in the same Firstless pool and canonical-block set.
 - Cross-block positioning, cross-pool routing, builder censorship, exact-input flow and external-price LVR are outside the mechanism.
 - The immutable router can be replaced only by deploying a new hook.
 - Active LP removal waits while a clearing set is open.
@@ -65,6 +66,8 @@ The full Slither pass also reports reviewed lower-confidence patterns. Equality 
 
 ## Release gates
 
-Production claims require a public Ethereum Sepolia deployment against the canonical v4 PoolManager, verified source and transaction links, the live Ethereum Sepolia dependency check, and an independent audit or formal review.
+Public-testnet claims require a deployment against that network's official v4 PoolManager, a pinned runtime manifest, transaction links, and a live dependency check. The primary demo meets that bar on Unichain Sepolia; Ethereum Sepolia remains a secondary exercised deployment.
+
+Production readiness would additionally require an independent audit or formal review. Firstless does not claim that today.
 
 Current claim: no known failing property in the completed local scope.

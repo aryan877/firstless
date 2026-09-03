@@ -83,7 +83,7 @@ export function MarginalMath() {
         <p>The bill in one equation</p>
         <h2 id="marginal-math-title">What did Alice add?</h2>
         <p className="marginal-math__lede">
-          One 1:1 pool. One completed Ethereum block. Alice pays only the extra fUSD cost created by her 10 fETH exact-output order.
+          One 1:1 pool. One completed canonical block. Alice pays only the extra fUSD cost created by her 10 fETH exact-output order.
         </p>
       </div>
 

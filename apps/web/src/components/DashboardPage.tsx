@@ -18,6 +18,7 @@ import {
   parseUnits,
   zeroAddress,
   zeroHash,
+  type Abi,
   type Address,
   type Hex,
 } from "viem";
@@ -30,6 +31,7 @@ import {
   useWalletClient,
   type Connector,
 } from "wagmi";
+import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,8 +50,9 @@ import {
   poolManagerAbi,
   redeemerAbi,
   routerAbi,
-  sendFunction,
+  sendFunction as sendRawFunction,
   shortAddress,
+  testnetTokenAbi,
   type ConnectedWallet,
   type Runtime,
 } from "@/lib/firstless";
@@ -169,6 +172,10 @@ function shortHash(hash: Hex): string {
   return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
 }
 
+function PairValue({ left, right }: { left: string; right: string }) {
+  return <strong className="value-pair"><span>{left}</span><i aria-hidden="true">/</i><span>{right}</span></strong>;
+}
+
 async function readSnapshot(runtime: Runtime, account?: Address): Promise<Snapshot> {
   const { deployment: d, publicClient } = runtime;
   const blockNumber = await publicClient.getBlockNumber();
@@ -224,7 +231,7 @@ async function readSnapshot(runtime: Runtime, account?: Address): Promise<Snapsh
   const activities: Activity[] = [];
 
   if (account) {
-    const [orderLogs, depositLogs, settledLogs, refundLogs, activationLogs, cancellationLogs, burnLogs] = await Promise.all([
+    const [orderLogs, depositLogs, settledLogs, refundLogs, activationLogs, cancellationLogs, burnLogs, seededLogs, redeemedLogs] = await Promise.all([
       publicClient.getContractEvents({
         address: d.hook,
         abi: hookAbi,
@@ -277,6 +284,22 @@ async function readSnapshot(runtime: Runtime, account?: Address): Promise<Snapsh
         abi: hookAbi,
         eventName: "Transfer",
         args: { from: account, to: zeroAddress },
+        fromBlock: BigInt(d.deploymentBlock),
+        toBlock: "latest",
+      }),
+      publicClient.getContractEvents({
+        address: d.hook,
+        abi: hookAbi,
+        eventName: "BookSeeded",
+        args: { provider: account },
+        fromBlock: BigInt(d.deploymentBlock),
+        toBlock: "latest",
+      }),
+      publicClient.getContractEvents({
+        address: d.redeemer,
+        abi: redeemerAbi,
+        eventName: "RefundRedeemed",
+        args: { owner: account },
         fromBlock: BigInt(d.deploymentBlock),
         toBlock: "latest",
       }),
@@ -385,6 +408,23 @@ async function readSnapshot(runtime: Runtime, account?: Address): Promise<Snapsh
       detail: `${amount(log.args.value!)} FIRST-LP burned`,
       hash: log.transactionHash,
     }));
+    seededLogs.forEach((log) => activities.push({
+      key: `seeded-${log.transactionHash}-${log.logIndex}`,
+      block: log.blockNumber,
+      title: "Firstless book seeded",
+      detail: `${amount(log.args.reserve0!, d.token0Decimals)} ${d.token0Symbol} + ${amount(log.args.reserve1!, d.token1Decimals)} ${d.token1Symbol}`,
+      hash: log.transactionHash,
+    }));
+    redeemedLogs.forEach((log) => {
+      const isToken0 = log.args.currency?.toLowerCase() === d.token0.toLowerCase();
+      activities.push({
+        key: `redeemed-${log.transactionHash}-${log.logIndex}`,
+        block: log.blockNumber,
+        title: "Refund redeemed to ERC-20",
+        detail: `${amount(log.args.amount!, isToken0 ? d.token0Decimals : d.token1Decimals)} ${isToken0 ? d.token0Symbol : d.token1Symbol} returned to the wallet`,
+        hash: log.transactionHash,
+      });
+    });
   }
 
   activities.sort((a, b) => Number(b.block - a.block));
@@ -418,6 +458,7 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
   const [runtime, setRuntime] = useState<Runtime>();
   const [runtimeError, setRuntimeError] = useState<string>();
   const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot);
+  const [snapshotReady, setSnapshotReady] = useState(false);
   const [amountOut, setAmountOut] = useState("10");
   const [tokenOut0, setTokenOut0] = useState(true);
   const [maximumInput, setMaximumInput] = useState<bigint>();
@@ -436,21 +477,26 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
   const connect = useConnect();
   const disconnect = useDisconnect();
   const switchChain = useSwitchChain();
-  const desiredChainId = runtime?.deployment.chainId as 31_337 | 11_155_111 | undefined;
+  const desiredChainId = runtime?.deployment.chainId as 1_301 | 31_337 | 11_155_111 | undefined;
   const walletQuery = useWalletClient({ chainId: desiredChainId });
 
   const refresh = useCallback(async (nextRuntime = runtime) => {
     if (!nextRuntime) return;
     try {
       setSnapshot(await readSnapshot(nextRuntime, connection.address));
+      setSnapshotReady(true);
       setRuntimeError(undefined);
     } catch (error) {
+      setSnapshot(emptySnapshot);
+      setSnapshotReady(false);
       setRuntimeError(errorMessage(error));
     }
   }, [connection.address, runtime]);
 
   useEffect(() => {
     let cancelled = false;
+    setSnapshotReady(false);
+    setSnapshot(emptySnapshot);
     loadRuntime()
       .then((loaded) => {
         if (cancelled) return;
@@ -458,7 +504,10 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
         return readSnapshot(loaded, connection.address);
       })
       .then((next) => {
-        if (!cancelled && next) setSnapshot(next);
+        if (!cancelled && next) {
+          setSnapshot(next);
+          setSnapshotReady(true);
+        }
       })
       .catch((error) => {
         if (!cancelled) setRuntimeError(errorMessage(error));
@@ -505,6 +554,66 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
     if (!connection.address || !walletQuery.data || !connectedOnTarget) return undefined;
     return { address: connection.address, client: walletQuery.data };
   }, [connectedOnTarget, connection.address, walletQuery.data]);
+
+  const sendFunction = async (
+    activeRuntime: Runtime,
+    activeWallet: ConnectedWallet,
+    address: Address,
+    abi: Abi,
+    functionName: string,
+    args: readonly unknown[] = [],
+  ) => {
+    const labels: Record<string, string> = {
+      approve: "Token approval",
+      execute: "Exact-output order",
+      settleExpiredEpoch: "Set settlement",
+      setOperator: "Refund permission",
+      claimRefund: "Refund claim",
+      redeem: "Refund redemption",
+      faucet: "Test-token mint",
+      addLiquidity: "LP deposit",
+      activatePendingLiquidity: "LP activation",
+      cancelPendingLiquidity: "LP cancellation",
+      removeLiquidity: "LP withdrawal",
+    };
+    const label = labels[functionName] || functionName;
+    let submittedHash: Hex | undefined;
+    const explorer = activeRuntime.deployment.explorerUrl;
+    const action = (hash: Hex) => explorer ? {
+      label: "View transaction",
+      onClick: () => window.open(`${explorer}/tx/${hash}`, "_blank", "noopener,noreferrer"),
+    } : undefined;
+    try {
+      const hash = await sendRawFunction(activeRuntime, activeWallet, address, abi, functionName, args, (nextHash) => {
+        submittedHash = nextHash;
+        toast.loading(`${label} submitted`, {
+          id: nextHash,
+          description: `Transaction ${shortHash(nextHash)}`,
+          action: action(nextHash),
+          duration: Infinity,
+        });
+      });
+      toast.success(`${label} confirmed`, {
+        id: hash,
+        description: `Transaction ${shortHash(hash)}`,
+        action: action(hash),
+        duration: 12_000,
+      });
+      return hash;
+    } catch (error) {
+      if (submittedHash) {
+        toast.error(`${label} failed`, {
+          id: submittedHash,
+          description: `Transaction ${shortHash(submittedHash)}`,
+          action: action(submittedHash),
+          duration: 14_000,
+        });
+      } else {
+        toast.error(`${label} was not submitted`, { description: errorMessage(error), duration: 8_000 });
+      }
+      throw error;
+    }
+  };
 
   const runAction = async (label: string, task: () => Promise<void>) => {
     setBusy(label);
@@ -641,10 +750,14 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
 
   const faucet = () => runAction("Demo tokens", async () => {
     const [activeRuntime, activeWallet] = requireWallet();
-    if (activeRuntime.deployment.mode !== "local") throw new Error("The faucet exists only in the local demo.");
     const d = activeRuntime.deployment;
-    await sendFunction(activeRuntime, activeWallet, d.token0, erc20Abi, "faucet", [activeWallet.address, parseUnits("1000", d.token0Decimals)]);
-    await sendFunction(activeRuntime, activeWallet, d.token1, erc20Abi, "faucet", [activeWallet.address, parseUnits("1000", d.token1Decimals)]);
+    if (d.mode === "local") {
+      await sendFunction(activeRuntime, activeWallet, d.token0, erc20Abi, "faucet", [activeWallet.address, parseUnits("1000", d.token0Decimals)]);
+      await sendFunction(activeRuntime, activeWallet, d.token1, erc20Abi, "faucet", [activeWallet.address, parseUnits("1000", d.token1Decimals)]);
+      return;
+    }
+    await sendFunction(activeRuntime, activeWallet, d.token0, testnetTokenAbi, "faucet");
+    await sendFunction(activeRuntime, activeWallet, d.token1, testnetTokenAbi, "faucet");
   });
 
   const addLiquidity = () => runAction("Pending liquidity deposit", async () => {
@@ -733,9 +846,9 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
     return (
       <main className="backend-state">
         <Brand />
-        <p>Backend not running</p>
-        <h1>Start the isolated Firstless local chain.</h1>
-        <code>npm run contracts:dev</code>
+        <p>Runtime unavailable</p>
+        <h1>Firstless could not verify its deployment.</h1>
+        <code>Check the manifest, RPC, and network, then retry.</code>
         <span>{runtimeError}</span>
         <Button variant="outline" onClick={onBack}><ArrowLeft aria-hidden="true" /> Back to the story</Button>
       </main>
@@ -761,12 +874,16 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
             <p>Firstless control room</p>
             <span>
               {deployment
-                ? `${deployment.mode === "local" ? "Firstless Local · Ethereum blocks" : deployment.chainName} · block ${snapshot.blockNumber}`
+                ? `${deployment.mode === "local" ? "Firstless Local · canonical blocks" : deployment.chainName}${snapshotReady ? ` · block ${snapshot.blockNumber}` : " · syncing live state"}`
                 : "Loading deployment…"}
             </span>
           </div>
           <div className="dash-topbar__actions">
-            {runtimeError ? <Badge className="badge-error">RPC error</Badge> : <Badge className="badge-live"><i /> Live contract state</Badge>}
+            {runtimeError
+              ? <Badge className="badge-error">RPC error</Badge>
+              : snapshotReady
+                ? <Badge className="badge-live"><i /> Live contract state</Badge>
+                : <Badge className="badge-idle">Syncing</Badge>}
             {connection.address ? (
               <div className="wallet-cluster">
                 {!connectedOnTarget && desiredChainId ? <Button variant="outline" onClick={() => void switchChain.mutateAsync({ chainId: desiredChainId })}>Switch network</Button> : null}
@@ -863,10 +980,10 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
           {notice && <Alert className="dash-alert dash-alert--success"><Check aria-hidden="true" /><AlertTitle>Confirmed</AlertTitle><AlertDescription>{notice}</AlertDescription></Alert>}
 
           <section className="dash-summary" aria-label="Pool summary">
-            <article><span>Active reserves</span><strong>{amount(snapshot.reserve0, deployment?.token0Decimals)} / {amount(snapshot.reserve1, deployment?.token1Decimals)}</strong><small>{deployment?.token0Symbol || "token 0"} and {deployment?.token1Symbol || "token 1"}</small></article>
-            <article><span>Current set</span><strong>{isEpochOpen ? `#${snapshot.epochId}` : "Idle"}</strong><small>{isEpochOpen ? `opened in block ${snapshot.openedAt}` : "opens with the next order"}</small></article>
-            <article><span>Orders in set</span><strong>{snapshot.ordersInSet.toString()}</strong><small>real hook state</small></article>
-            <article><span>Refund liabilities</span><strong>{amount(snapshot.liability0, deployment?.token0Decimals)} / {amount(snapshot.liability1, deployment?.token1Decimals)}</strong><small>kept outside LP equity</small></article>
+            <article><span>Active reserves</span>{snapshotReady ? <PairValue left={amount(snapshot.reserve0, deployment?.token0Decimals)} right={amount(snapshot.reserve1, deployment?.token1Decimals)} /> : <strong>—</strong>}<small>{deployment?.token0Symbol || "token 0"} and {deployment?.token1Symbol || "token 1"}</small></article>
+            <article><span>Current set</span><strong>{snapshotReady ? (isEpochOpen ? `#${snapshot.epochId}` : "Idle") : "—"}</strong><small>{snapshotReady ? (isEpochOpen ? `opened in block ${snapshot.openedAt}` : "opens with the next order") : "reading the hook"}</small></article>
+            <article><span>Orders in set</span><strong>{snapshotReady ? snapshot.ordersInSet.toString() : "—"}</strong><small>real hook state</small></article>
+            <article><span>Refund liabilities</span>{snapshotReady ? <PairValue left={amount(snapshot.liability0, deployment?.token0Decimals)} right={amount(snapshot.liability1, deployment?.token1Decimals)} /> : <strong>—</strong>}<small>kept outside LP equity</small></article>
           </section>
 
           <div className="dash-grid">
@@ -892,11 +1009,11 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
                     </div>
                     <div className="quote-breakdown">
                       <div><span>Onchain maximum quote</span><strong>{maximumInput ? `${amount(maximumInput, inputDecimals, 8)} ${inputSymbol}` : "Outside current cap"}</strong></div>
-                      <div><span>Set clock</span><strong>Ethereum block</strong></div>
+                      <div><span>Set clock</span><strong>Canonical block</strong></div>
                       <div className="quote-breakdown__refund"><span>Refund</span><strong>Known only after the set closes</strong></div>
                     </div>
-                    <Button className="trade-submit" size="lg" disabled={!wallet || !maximumInput || Boolean(busy)} onClick={() => void submitTrade()}>{busy === "Exact-output order" ? <LoaderCircle className="spin" aria-hidden="true" /> : <Wallet aria-hidden="true" />} Sign and execute order</Button>
-                    {deployment?.mode === "local" && <Button className="secondary-action" variant="outline" disabled={!wallet || Boolean(busy)} onClick={() => void faucet()}>Mint local demo tokens</Button>}
+                    <Button className="trade-submit" size="lg" disabled={!snapshotReady || !wallet || !maximumInput || Boolean(busy)} onClick={() => void submitTrade()}>{busy === "Exact-output order" ? <LoaderCircle className="spin" aria-hidden="true" /> : <Wallet aria-hidden="true" />} Sign and execute order</Button>
+                    <Button className="secondary-action" variant="outline" disabled={!wallet || Boolean(busy)} onClick={() => void faucet()}>{deployment?.mode === "local" ? "Mint local demo tokens" : "Claim 1,000 test tokens"}</Button>
                   </CardContent>
                 </Card>
               )}
@@ -937,9 +1054,9 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
 
               {section === "activity" && (
                 <Card className="dash-card activity-card">
-                  <CardHeader><CardTitle>Onchain activity</CardTitle><CardDescription>Reconstructed from the configured hook’s emitted logs, beginning at its deployment block.</CardDescription></CardHeader>
+                  <CardHeader><CardTitle>Onchain activity</CardTitle><CardDescription>Reconstructed from the deployed Firstless contracts’ logs, beginning at the hook’s deployment block.</CardDescription></CardHeader>
                   <CardContent>
-                    {snapshot.activities.map((item) => <article key={item.key}><div><strong>{item.title}</strong><span>{item.detail}</span></div><div><small>block {item.block}</small>{item.hash && <code>{shortHash(item.hash)} <ExternalLink /></code>}</div></article>)}
+                    {snapshot.activities.map((item) => <article key={item.key}><div><strong>{item.title}</strong><span>{item.detail}</span></div><div><small>block {item.block}</small>{item.hash && (deployment?.explorerUrl ? <a href={`${deployment.explorerUrl}/tx/${item.hash}`} target="_blank" rel="noreferrer"><code>{shortHash(item.hash)}</code><ExternalLink aria-hidden="true" /></a> : <code>{shortHash(item.hash)}</code>)}</div></article>)}
                     {snapshot.activities.length === 0 && <p className="empty-copy">Connect a wallet with Firstless history or execute the first local action.</p>}
                   </CardContent>
                 </Card>
@@ -947,8 +1064,8 @@ export function DashboardPage({ onBack }: DashboardPageProps) {
             </section>
 
             <aside className="round-panel">
-              <div className="round-panel__heading"><div><p>Ethereum block set</p><span className="round-panel__chain">Hook clock · block.number</span></div><Badge className={isEpochOpen ? "badge-live" : "badge-idle"}>{isEpochOpen && <i />} {isEpochOpen ? "Open" : "Idle"}</Badge></div>
-              <section className="round-panel__status" aria-label="Current Ethereum block set status">
+              <div className="round-panel__heading"><div><p>Canonical block set</p><span className="round-panel__chain">Hook clock · block.number</span></div><Badge className={isEpochOpen ? "badge-live" : "badge-idle"}>{isEpochOpen && <i />} {isEpochOpen ? "Open" : "Idle"}</Badge></div>
+              <section className="round-panel__status" aria-label="Current canonical block set status">
                 <div className="round-panel__state">
                   <span>Set status</span>
                   <strong>{isEpochOpen ? "Collecting this block" : "Waiting for first order"}</strong>
